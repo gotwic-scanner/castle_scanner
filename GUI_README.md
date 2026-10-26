@@ -137,3 +137,6 @@ Castle Explorer: double-click a castle row to retrieve power, or right-click a r
 On the **Scanner & Console** tab, after the scan finishes, double-click a castle in **Live castle results**, right-click it and select **Get Power for selected castle**, or select a row and use the Get Power button below the live table. This works for protected and unprotected castles. The action resolves the selected castle against the latest saved CSV snapshot and updates only that record (and SQL when enabled). An active scan must finish before lookup. The same controls remain available in Castle Explorer.
 
 Castle Explorer columns: Castle, X, Y, Truce Status, Power (M), last_seen_utc. Sortable and supports manual Get Power.
+
+### GitHub updates
+Updates use https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/ . Publish version.json and all files it lists to the repository root.

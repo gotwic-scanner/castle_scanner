@@ -517,7 +517,7 @@ class MainWindow(QMainWindow):
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
 APP_VERSION = "1.0.5"
-UPDATE_BASE_URL = "https://gotwic-scanner.byethost4.com/game/updates/"
+UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
 
@@ -553,7 +553,9 @@ def check_for_gui_update():
         with urllib.request.urlopen(req, timeout=UPDATE_CHECK_TIMEOUT_SECONDS) as response:
             raw = response.read(131073)
         if len(raw) > 131072:
-            return False
+            raise ValueError("Update manifest exceeds 128 KiB")
+        if raw.lstrip().startswith((b"<", b"<!")):
+            raise ValueError("Update server returned HTML instead of version.json")
         manifest = json.loads(raw.decode("utf-8"))
         remote = manifest.get("version")
         if not _version_tuple(remote) or _version_tuple(remote) <= _version_tuple(APP_VERSION):
@@ -574,7 +576,10 @@ def check_for_gui_update():
                 not isinstance(item.get("size"), int) or item["size"] < 0 or item["size"] > 30_000_000):
                 raise ValueError("Invalid update file metadata")
             seen.add(name)
-    except Exception:
+    except Exception as exc:
+        QMessageBox.warning(None, "GOTWiC Scanner update check failed",
+            f"Could not check for updates at GitHub:\n{exc}\n\n"
+            "Select OK to continue with the installed version.")
         return False
 
     root = Path(__file__).resolve().parent
@@ -600,13 +605,10 @@ def check_for_gui_update():
             req = urllib.request.Request(UPDATE_BASE_URL + name,
                                         headers={"User-Agent": "GOTWiC-Scanner-Updater"})
             with urllib.request.urlopen(req, timeout=remaining) as response, (stage/name).open("wb") as target:
-                socket = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
                 while True:
                     remaining = UPDATE_DOWNLOAD_TIMEOUT_SECONDS - (time.monotonic() - started)
                     if remaining <= 0:
                         raise TimeoutError("The 15-second overall download timeout was exceeded")
-                    if socket is not None:
-                        socket.settimeout(remaining)
                     block = response.read(min(65536, item["size"] + 1 - target.tell()))
                     if not block:
                         break
