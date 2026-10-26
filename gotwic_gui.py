@@ -124,7 +124,15 @@ class MainWindow(QMainWindow):
         layout.addLayout(buttons)
         self.status = QLabel('Idle — open Chrome with remote debugging and load the game map.')
         layout.addWidget(self.status)
-        layout.addWidget(QLabel('Live castle results — protected: light red; unprotected: light green'))
+        live_header = QHBoxLayout()
+        live_header.addWidget(QLabel('Live castle results — protected: light red; unprotected: light green'))
+        live_header.addStretch()
+        live_header.addWidget(QLabel('Display'))
+        self.live_status_filter = QComboBox()
+        self.live_status_filter.addItems(['ALL', 'PROTECTED', 'UNPROTECTED'])
+        self.live_status_filter.currentTextChanged.connect(self.refresh_live_table)
+        live_header.addWidget(self.live_status_filter)
+        layout.addLayout(live_header)
         self.live_table = self.make_table(['Castle', 'X', 'Y', 'Truce Status', 'Power (M)'])
         layout.addWidget(self.live_table, 3)
         self.live_table.cellDoubleClicked.connect(self.request_power_at_live_row)
@@ -238,9 +246,12 @@ class MainWindow(QMainWindow):
         if sort_col >= 0: table.sortItems(sort_col, sort_order)
         table.resizeRowsToContents()
 
-    def refresh_live_table(self):
-        rows = [[r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in self.live_results]
-        statuses = [r['status'] for r in self.live_results]
+    def refresh_live_table(self, *_):
+        status_filter = self.live_status_filter.currentText()
+        visible = [r for r in self.live_results
+                   if status_filter == 'ALL' or r['status'].upper() == status_filter]
+        rows = [[r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
+        statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
 
     def choose_folder(self):
@@ -557,7 +568,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = "1.0.6.2"
+APP_VERSION = "1.0.6.3"
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

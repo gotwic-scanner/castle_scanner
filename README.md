@@ -1,3 +1,13 @@
+# GOTWiC Scanner GUI v1.0.6.3 — live status filtering
+
+- Scanner Console live castle results have an **ALL / PROTECTED / UNPROTECTED** display filter.
+- Switching the filter instantly refreshes visible castles during or after a scan, without changing scan output, SQL, CSV, or the underlying castle list.
+- Truce Status and Power (M) sorting remain available, as does manual Get Power for a selected visible castle.
+- Castle Explorer retains its existing status filter (including UNKNOWN) and search.
+- Includes all v1.0.6.2 Unicode and v1.0.6.1 snapshot fixes, NPC power exclusion, and GitHub updater.
+
+---
+
 # GOTWiC Scanner GUI v1.0.6.2 — Unicode power lookup hotfix
 
 - Manual castle power subprocess is launched with `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`.
