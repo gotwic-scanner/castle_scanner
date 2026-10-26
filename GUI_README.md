@@ -1,3 +1,7 @@
+## v1.0.6.7 — one-time activation
+
+On the first GUI launch, enter the activation password once. A successful entry is saved under `%LOCALAPPDATA%\GOTWiC-Scanner\activation.json` and future launches, including after updates, skip the password prompt. Three incorrect entries cause a persistent local lockout. Cancelling does not consume an attempt. The lockout is application-level and is not tamper-resistant against someone with filesystem access. Activation is checked before update checks and GUI startup.
+
 # GOTWiC Scanner GUI v1.0.6.6
 
 ## v1.0.6.6 changes

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.6.6
+# GOTWiC Scanner GUI package release: 1.0.6.7
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -601,7 +601,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.6.6'
+APP_VERSION = '1.0.6.7'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
@@ -725,8 +725,90 @@ def check_for_gui_update():
         return False
 
 
+# One-time activation: the application never stores the entered password.
+# This is a local convenience gate, not tamper-resistant licensing.
+_ACTIVATION_HASH = "b49b055af9287eb51ec23b4864c9de2ba8961d261281b5cdd91b1e0799dcc76b"
+
+def _activation_state_path():
+    root = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".local" / "share"))
+    return root / "GOTWiC-Scanner" / "activation.json"
+
+def _read_activation_state(path):
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict):
+            raise ValueError("Invalid activation state")
+        return {"activated": state.get("activated") is True,
+                "failed_attempts": min(3, max(0, int(state.get("failed_attempts", 0))))}
+    except FileNotFoundError:
+        return {"activated": False, "failed_attempts": 0}
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        # Fail closed if the persisted state is damaged; don't reset attempts.
+        return None
+
+def _write_activation_state(path, state):
+    import tempfile
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix="activation_", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_name, path)
+    finally:
+        if os.path.exists(temp_name):
+            os.unlink(temp_name)
+
+def _require_first_run_activation():
+    import hashlib
+    import hmac
+    from PySide6.QtWidgets import QInputDialog
+    path = _activation_state_path()
+    state = _read_activation_state(path)
+    if state is None:
+        QMessageBox.critical(None, "Activation unavailable",
+                             "Activation state cannot be read. Application startup is blocked.")
+        return False
+    if state["activated"]:
+        return True
+    if state["failed_attempts"] >= 3:
+        QMessageBox.critical(None, "Installation locked",
+                             "Three incorrect password attempts were recorded. This installation is locked.")
+        return False
+    while state["failed_attempts"] < 3:
+        remaining = 3 - state["failed_attempts"]
+        value, accepted = QInputDialog.getText(None, "GOTWiC Scanner activation",
+            f"Enter the one-time activation password ({remaining} attempt(s) remaining):",
+            QLineEdit.EchoMode.Password)
+        if not accepted:
+            return False
+        valid = hmac.compare_digest(hashlib.sha256(value.encode("utf-8")).hexdigest(), _ACTIVATION_HASH)
+        if valid:
+            state["activated"] = True
+            try:
+                _write_activation_state(path, state)
+            except OSError as exc:
+                QMessageBox.critical(None, "Activation failed", f"Cannot save activation state: {exc}")
+                return False
+            return True
+        state["failed_attempts"] += 1
+        try:
+            _write_activation_state(path, state)
+        except OSError as exc:
+            QMessageBox.critical(None, "Activation failed", f"Cannot save failed attempt: {exc}")
+            return False
+        if state["failed_attempts"] >= 3:
+            QMessageBox.critical(None, "Installation locked",
+                                 "Three incorrect attempts. This installation is now locked.")
+            return False
+        QMessageBox.warning(None, "Incorrect password", "Incorrect password. Please try again.")
+    return False
+
 if __name__=='__main__':
     app=QApplication(sys.argv)
+    if not _require_first_run_activation():
+        sys.exit(1)
     if check_for_gui_update():
         sys.exit(0)
     parser=argparse.ArgumentParser(add_help=False)
