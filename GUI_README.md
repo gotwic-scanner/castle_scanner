@@ -1,3 +1,12 @@
+# GOTWiC Scanner GUI v1.0.6.2 — Unicode power lookup hotfix
+
+- Manual castle power subprocess is launched with `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`.
+- Standalone `castle_power_detector.py` configures stdout/stderr as UTF-8 to support Cyrillic and other Unicode castle names in JSON output.
+- GUI reads detector output as UTF-8; exact player-name validation and UTF-8 CSV persistence remain unchanged.
+- Retains v1.0.6.1 snapshot synchronization, NPC exclusion, SQL support, and GitHub updater.
+
+---
+
 # GOTWiC Scanner GUI v1.0.6.1 — snapshot synchronization hotfix
 
 - Use the exact CSV path reported by a completed GUI scan, including when the scanner writes outside the GUI's configured CSV folder.

@@ -506,8 +506,12 @@ class MainWindow(QMainWindow):
         self.live_power_btn.setEnabled(False)
         self.status.setText(f'Looking up power for {name} at X={x}, Y={y}...')
         try:
+            power_env = os.environ.copy()
+            power_env['PYTHONIOENCODING'] = 'utf-8'
+            power_env['PYTHONUTF8'] = '1'
             self.power_proc = subprocess.Popen(cmd, cwd=str(BASE), stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace')
+                         stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace',
+                         env=power_env)
             self.power_target = target
         except OSError as exc:
             self.power_proc = None
@@ -553,7 +557,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = "1.0.6.1"
+APP_VERSION = "1.0.6.2"
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

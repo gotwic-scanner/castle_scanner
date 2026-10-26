@@ -113,6 +113,11 @@ def detect(x, y, name, port):
 
 
 def main():
+    # JSON may contain Cyrillic/CJK names; Windows legacy console encodings
+    # cannot reliably represent them. Force UTF-8 even when invoked directly.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace')
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--x',type=int,required=True)
     parser.add_argument('--y',type=int,required=True)
