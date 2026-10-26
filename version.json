@@ -1,0 +1,85 @@
+{
+  "version": "1.0.5",
+  "files": [
+    {
+      "path": "GUI_README.md",
+      "size": 8299,
+      "sha256": "f8449c78e82e957188386bfa3ee26f36e29fa7424ccc5e3ebb2b554825e46da5"
+    },
+    {
+      "path": "README.md",
+      "size": 8299,
+      "sha256": "f8449c78e82e957188386bfa3ee26f36e29fa7424ccc5e3ebb2b554825e46da5"
+    },
+    {
+      "path": "RUN_GUI.bat",
+      "size": 233,
+      "sha256": "5c7e5beb5a147844f174e2085d50edf3088735cd0a7c481e1f4be4f9d7e82217"
+    },
+    {
+      "path": "UPLOAD_TO_SERVER.txt",
+      "size": 359,
+      "sha256": "3928a8fc227a13524167d2763671754d18c0718c640fa24a79d9fc72f3265f5e"
+    },
+    {
+      "path": "VERSION",
+      "size": 6,
+      "sha256": "8c54bfab7f1ae9bd1a7148eae41e7b0a8f4ad3726e0cac70f823a2d45db9e60c"
+    },
+    {
+      "path": "castle_power_detector.py",
+      "size": 5822,
+      "sha256": "8ebf63d30f045cde8c197069b3d513cff8a6a777ca619c2679e9944fb74d89b7"
+    },
+    {
+      "path": "decode_bubble_events.py",
+      "size": 5844,
+      "sha256": "a1bac2bbbbea476199502ea877edfa9a72ea8a18337721d2ce3bcfc08aeb54b4"
+    },
+    {
+      "path": "extract_coordinates_from_protocol.py",
+      "size": 3198,
+      "sha256": "865e0acb9da961ecaea4885e7f860972a193debe3f4d04c68cb11c84afed1446"
+    },
+    {
+      "path": "gotwic_gui.py",
+      "size": 33657,
+      "sha256": "519150a91f356bf72cec437628e4344d55dd052b3bdff7dd16f5b290c8102961"
+    },
+    {
+      "path": "gotwic_kingdom542_production_mask.json",
+      "size": 49924,
+      "sha256": "d94a416fc28520403f8748dcb267013de2e397b68d3dcd4a4b0d19a10a3fb91b"
+    },
+    {
+      "path": "gotwic_scanner_v2_2.py",
+      "size": 28626,
+      "sha256": "3da68ecc8eccc2ff1bfe022ddba8e32a4793d19c564df2c36c0a7c609db1c609"
+    },
+    {
+      "path": "live_truce_scanner_v5.py",
+      "size": 12831,
+      "sha256": "99b52c2f1fc862ae3a9e7b189f7f07bc9fc6c0fc62a0b874a160e6084adad8ea"
+    },
+    {
+      "path": "live_truce_scanner_v6.py",
+      "size": 8213,
+      "sha256": "e5102883cdfd7724fde7c24158aa1287f52502629702baed58f86a4af0f8c35a"
+    },
+    {
+      "path": "power_storage.py",
+      "size": 3558,
+      "sha256": "7ecd6007a543893a3df3b83b451c72afb013443f5f97d4bfd69f094a6c58df13"
+    },
+    {
+      "path": "requirements_gui.txt",
+      "size": 67,
+      "sha256": "7c5d1acda8daf1bd65abaeea390a9dc96590b41db87a9b1035c91104276f66d4"
+    },
+    {
+      "path": "updater.py",
+      "size": 3701,
+      "sha256": "bf9d36e67d9f540cb464c04ea96bb898f28157bbfbfe0559f179d498cec6cae7"
+    }
+  ]
+}

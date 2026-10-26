@@ -1,0 +1,8 @@
+GOTWiC Scanner v1.0.5 changed-files release
+
+Upload version.json and ALL files listed in its files array to:
+https://gotwic-scanner.byethost4.com/game/updates/
+
+Keep filenames unchanged. SHA-256 and sizes must match the manifest.
+The v1.0.4 updater detects 1.0.5 and installs changed files.
+Existing local files not listed in the manifest are left untouched.
