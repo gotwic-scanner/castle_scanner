@@ -385,7 +385,7 @@ def main():
         power_results={'enabled':a.verbose,'eligible':0,'skipped':0,'attempted':0,'matched':0,'unavailable':0,
                        'timeout_seconds':POWER_TIMEOUT,'errors':[]}
         if a.verbose and rows:
-            power_results['eligible']=sum(row[6]=='UNPROTECTED' for row in rows)
+            power_results['eligible']=sum(row[6]=='UNPROTECTED' and not row[4].startswith("Night'sWatch") for row in rows)
             power_results['skipped']=len(rows)-power_results['eligible']
             print(f'Power lookup: {power_results["eligible"]} UNPROTECTED castles ({power_results["skipped"]} skipped) | v7 timing baseline',flush=True)
             viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
@@ -398,7 +398,7 @@ def main():
             powered=[]
             for index,row in enumerate(rows):
                 name=row[4]; mid=row[3]; power=0
-                if row[6]!='UNPROTECTED':
+                if row[6]!='UNPROTECTED' or name.startswith("Night'sWatch"):
                     powered.append(row)
                     continue
                 power_results['attempted']+=1

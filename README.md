@@ -1,3 +1,13 @@
+# GOTWiC Scanner GUI v1.0.6
+
+## v1.0.6 changes
+
+- Automatic verbose power lookups skip castles with names starting exactly with `Night'sWatch`, regardless of truce status. These castles remain in scan output with power 0.
+- Manual Get Power remains available for all castles, including NPC castles.
+- GitHub changed-file updater and all v1.0.5 features are retained.
+
+---
+
 # GOTWiC Scanner GUI v1.0.5
 
 ## v1.0.5 changes
