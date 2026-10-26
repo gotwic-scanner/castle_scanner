@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.6.1
+# GOTWiC Scanner GUI package release: 1.0.6.5
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -66,6 +66,17 @@ def movements(scans):
                                       f"{row['x']},{row['y']}", path.name])
             previous = current
     return list(reversed(found))
+
+class NumericItem(QTableWidgetItem):
+    """Sort numeric table cells by value while displaying the original text."""
+    def __lt__(self, other):
+        try:
+            left = float(self.data(Qt.ItemDataRole.UserRole))
+            right = float(other.data(Qt.ItemDataRole.UserRole))
+            return left < right
+        except (TypeError, ValueError):
+            return super().__lt__(other)
+
 
 class TruceItem(QTableWidgetItem):
     def __lt__(self, other):
@@ -198,6 +209,7 @@ class MainWindow(QMainWindow):
         t.verticalHeader().setVisible(False)
         t.verticalHeader().setDefaultSectionSize(27)
         t.setSortingEnabled(True)
+        t.sortItems(0, Qt.SortOrder.AscendingOrder)
         header = t.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setStretchLastSection(True)
@@ -233,10 +245,14 @@ class MainWindow(QMainWindow):
             else:
                 text_color = None
             for j, value in enumerate(row):
-                item = (TruceItem if str(table.horizontalHeaderItem(j).text()) == 'Truce Status' else QTableWidgetItem)(str(value if value is not None else ''))
-                if str(table.horizontalHeaderItem(j).text()) in ('Power (M)', 'X', 'Y'):
-                    try: item.setData(Qt.ItemDataRole.EditRole, float(value or 0))
-                    except (ValueError, TypeError): pass
+                column_name = table.horizontalHeaderItem(j).text()
+                item_type = (TruceItem if column_name == 'Truce Status' else
+                             NumericItem if column_name in ('Power (M)', 'X', 'Y') else
+                             QTableWidgetItem)
+                item = item_type(str(value if value is not None else ''))
+                if column_name in ('Power (M)', 'X', 'Y'):
+                    try: item.setData(Qt.ItemDataRole.UserRole, float(value or 0))
+                    except (ValueError, TypeError): item.setData(Qt.ItemDataRole.UserRole, 0.0)
                 if str(table.horizontalHeaderItem(j).text()) == 'Truce Status':
                     item.setData(Qt.ItemDataRole.UserRole, {'UNPROTECTED':0,'UNKNOWN':1,'PROTECTED':2}.get(str(value).upper(),3))
                 if text_color is not None:
@@ -570,7 +586,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = "1.0.6.4"
+APP_VERSION = '1.0.6.5'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

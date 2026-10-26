@@ -1,4 +1,4 @@
-# GOTWiC Scanner GUI v1.0.6.4
+# GOTWiC Scanner GUI v1.0.6.5
 
 ## v1.0.6.4 change
 
@@ -185,3 +185,7 @@ Castle Explorer columns: Castle, X, Y, Truce Status, Power (M), last_seen_utc. S
 
 ### GitHub updates
 Updates use https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/ . Publish version.json and all files it lists to the repository root.
+
+## v1.0.6.5 — numeric power sorting
+
+Live results and Castle Explorer now sort Power (M), X and Y numerically using dedicated numeric table items. Sorting is retained when tables refresh, filters change or power values are updated. Double-click and context-menu power lookups continue to resolve castle identity from displayed row data.
