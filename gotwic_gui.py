@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.6
+# GOTWiC Scanner GUI package release: 1.0.6.1
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -82,6 +82,8 @@ class MainWindow(QMainWindow):
         self.messages = queue.Queue()
         self.scans = []
         self.latest = []
+        self.active_scan_csv = None  # Exact CSV emitted by the latest completed GUI scan.
+        self.pending_scan_csv = None
         self.live_results = []
         self.power_proc = None
         self.power_target = None
@@ -248,6 +250,23 @@ class MainWindow(QMainWindow):
 
     def refresh_data(self):
         self.scans=read_snapshots(Path(self.folder.text()))
+        # The scanner can write CSV files outside the GUI's configured folder.
+        # Never silently substitute an older snapshot for the current run.
+        if self.active_scan_csv is not None:
+            path = self.active_scan_csv
+            try:
+                with path.open(encoding='utf-8-sig', newline='') as stream:
+                    reader = csv.DictReader(stream)
+                    if not set(COLUMNS).issubset(reader.fieldnames or []):
+                        raise ValueError('CSV columns do not match the scanner format')
+                    rows = list(reader)
+                if len({r['last_seen_utc'] for r in rows}) > 1:
+                    raise ValueError('CSV contains multiple scan timestamps')
+                self.scans = [(p, rs) for p, rs in self.scans if p.resolve() != path.resolve()]
+                self.scans.insert(0, (path, rows))
+            except (OSError, UnicodeError, csv.Error, ValueError) as exc:
+                self.scans = []
+                self.status.setText(f'Latest scan snapshot unavailable: {exc}')
         self.latest=self.scans[0][1] if self.scans else []
         self.filter_castles()
         summary=[]
@@ -262,7 +281,13 @@ class MainWindow(QMainWindow):
         filtered=[r for r in self.latest if (status=='ALL' or r['status']==status) and (not term or any(term in str(v).casefold() for v in r.values()))]
         self.fill_table(self.castles_table, [[r.get('name', ''), r.get('x', ''), r.get('y', ''), r.get('status', 'UNKNOWN'), r.get('status_source', 0), r.get('last_seen_utc', '')] for r in filtered],
                         [str(r.get('status', 'UNKNOWN')).upper() for r in filtered])
-        self.summary.setText(f'Latest snapshot: {len(self.latest)} castles | Displayed: {len(filtered)} | Unprotected: {sum(r["status"]=="UNPROTECTED" for r in self.latest)}')
+        snapshot_info = ''
+        if self.scans:
+            path, rows = self.scans[0]
+            kingdom = rows[0].get('kingdom', path.name.split('_')[0]) if rows else path.name.split('_')[0]
+            stamp = rows[0].get('last_seen_utc', 'unknown') if rows else 'unknown'
+            snapshot_info = f' | Kingdom: {kingdom} | Snapshot: {stamp}'
+        self.summary.setText(f'Latest snapshot: {len(self.latest)} castles | Displayed: {len(filtered)} | Unprotected: {sum(r["status"]=="UNPROTECTED" for r in self.latest)}{snapshot_info}')
 
     def start_scan(self):
         if self.proc is not None or self.power_proc is not None: return
@@ -280,6 +305,8 @@ class MainWindow(QMainWindow):
         if not self.enable_sql.isChecked():cmd+=['--no-db']
         if self.player.text().strip():cmd+=['--player',self.player.text().strip()]
         if self.verbose_power.isChecked():cmd+=['--verbose']
+        self.pending_scan_csv = None
+        self.active_scan_csv = None
         self.console.clear(); self.console.append('Starting scanner...')
         try:
             flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
@@ -355,13 +382,23 @@ class MainWindow(QMainWindow):
                     'could not encode', 'unicodeencodeerror'
                 )):
                     continue
+                if clean_line.startswith('CSV:'):
+                    raw_path = clean_line.partition(':')[2].strip().strip('"')
+                    if raw_path:
+                        self.pending_scan_csv = Path(raw_path)
                 if clean_line:
                     self.console.append(clean_line)
                 if 'press Enter to start' in lowered:self.status.setText('Ready — verify Kingdom/map and click Confirm')
             else:
                 self.status.setText('Scan finished')
                 self.proc=None;self.start_btn.setEnabled(True);self.ready_btn.setEnabled(False);self.stop_btn.setEnabled(False)
+                if self.pending_scan_csv is not None:
+                    self.active_scan_csv = self.pending_scan_csv
                 self.refresh_data()
+                if self.pending_scan_csv is None:
+                    self.status.setText('Scan finished — no CSV path reported; manual power lookup unavailable')
+                elif not self.scans or self.scans[0][0] != self.active_scan_csv:
+                    self.status.setText('Scan finished — latest CSV could not be loaded')
                 if self.report_path.exists():
                     try:
                         report=json.loads(self.report_path.read_text(encoding='utf-8'))
@@ -407,7 +444,7 @@ class MainWindow(QMainWindow):
         matches = [r for r in self.latest if r.get('name') == name
                    and str(r.get('x')) == str(x) and str(r.get('y')) == str(y)
                    and str(r.get('kingdom')) == str(self.kingdom.value())]
-        if len(matches) != 1 or not self.scans:
+        if len(matches) != 1 or not self.scans or self.active_scan_csv is None or self.scans[0][0] != self.active_scan_csv:
             QMessageBox.warning(self, 'Snapshot unavailable',
                 'Could not uniquely match this castle to the latest saved scan. '
                 'Finish the scan and reload its snapshot before requesting power.')
@@ -516,7 +553,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.6.1"
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

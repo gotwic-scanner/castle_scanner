@@ -1,3 +1,13 @@
+# GOTWiC Scanner GUI v1.0.6.1 — snapshot synchronization hotfix
+
+- Use the exact CSV path reported by a completed GUI scan, including when the scanner writes outside the GUI's configured CSV folder.
+- Refresh Castle Explorer from that snapshot; display its kingdom and `last_seen_utc` timestamp.
+- Resolve manual Get Power requests from the live table against that same snapshot, never an unrelated older scan.
+- If the current CSV is missing or invalid, report that condition instead of silently falling back to old results.
+- All v1.0.6 features, including Night'sWatch NPC power exclusion and GitHub updates, remain unchanged.
+
+---
+
 # GOTWiC Scanner GUI v1.0.6
 
 ## v1.0.6 changes
