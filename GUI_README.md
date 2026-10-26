@@ -1,3 +1,9 @@
+# GOTWiC Scanner GUI v1.0.6.4
+
+## v1.0.6.4 change
+
+- Scanner Console startup banner displays APP_VERSION rather than the scanner engine internal version.
+
 # GOTWiC Scanner GUI v1.0.6.3 — live status filtering
 
 - Scanner Console live castle results have an **ALL / PROTECTED / UNPROTECTED** display filter.

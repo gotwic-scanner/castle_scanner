@@ -398,6 +398,8 @@ class MainWindow(QMainWindow):
                     if raw_path:
                         self.pending_scan_csv = Path(raw_path)
                 if clean_line:
+                    if clean_line.startswith('GOTWiC Scanner v2.2 |'):
+                        clean_line = f'GOTWiC Scanner v{APP_VERSION} |' + clean_line.split('|', 1)[1]
                     self.console.append(clean_line)
                 if 'press Enter to start' in lowered:self.status.setText('Ready — verify Kingdom/map and click Confirm')
             else:
@@ -568,7 +570,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = "1.0.6.3"
+APP_VERSION = "1.0.6.4"
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
