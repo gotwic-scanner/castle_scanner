@@ -1,3 +1,13 @@
+# GOTWiC Scanner GUI v1.0.6.6
+
+## v1.0.6.6 changes
+
+- Added Minimum Power filter to Scanner Console beneath Player: ALL (default), 1.000, 1.250, 1.500, 1.750, 2.000 billion.
+- Applies instantly to live results in combination with truce status filter, including new power lookups. Display-only; does not alter CSV or SQL.
+- Retains existing sorting and manual Get Power.
+
+---
+
 # GOTWiC Scanner GUI v1.0.6.5
 
 ## v1.0.6.4 change
