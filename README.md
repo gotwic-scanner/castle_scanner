@@ -1,3 +1,7 @@
+## v1.0.6.8 — mandatory detected updates
+
+When the GitHub version manifest announces a newer version, the update prompt is mandatory: declining the update exits the application. Download or staging failure after an update is detected also exits instead of launching the outdated GUI. If the version check itself fails before any newer version is confirmed, the installed GUI can still launch (offline availability). Activation state and lockout persist across updates.
+
 ## v1.0.6.7 — one-time activation
 
 On the first GUI launch, enter the activation password once. A successful entry is saved under `%LOCALAPPDATA%\GOTWiC-Scanner\activation.json` and future launches, including after updates, skip the password prompt. Three incorrect entries cause a persistent local lockout. Cancelling does not consume an attempt. The lockout is application-level and is not tamper-resistant against someone with filesystem access. Activation is checked before update checks and GUI startup.

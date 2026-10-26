@@ -601,7 +601,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.6.7'
+APP_VERSION = '1.0.6.8'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
@@ -648,8 +648,8 @@ def check_for_gui_update():
         entries = manifest.get("files")
         if not isinstance(entries, list) or not entries or len(entries) > 100:
             QMessageBox.critical(None, "Update unavailable",
-                "The server does not provide a valid multi-file manifest. Select OK to start the installed version.")
-            return False
+                "The server does not provide a valid multi-file manifest. The application will close.")
+            return True
         seen = set()
         for item in entries:
             if not isinstance(item, dict):
@@ -673,11 +673,12 @@ def check_for_gui_update():
                or _update_file_hash(root/item["path"]) != item["sha256"].lower()]
     answer = QMessageBox.question(None, "GOTWiC Scanner update",
         f"Version {remote} is available (installed: {APP_VERSION}).\n"
-        f"{len(changed)} changed file(s) need downloading.\n\nInstall now?",
+        f"{len(changed)} changed file(s) need downloading.\n\nThis update is required. Declining will close the application. Install now?",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.Yes)
     if answer != QMessageBox.StandardButton.Yes:
-        return False
+        QMessageBox.information(None, "Update required", "The update was declined. The application will now close.")
+        return True
 
     stage = Path(tempfile.mkdtemp(prefix="gotwic_update_"))
     started = time.monotonic()
@@ -721,8 +722,8 @@ def check_for_gui_update():
         shutil.rmtree(stage, ignore_errors=True)
         QMessageBox.critical(None, "Update failed",
             f"Could not download or stage the complete update:\n{exc}\n\n"
-            "Select OK to continue with the installed version.")
-        return False
+            "Select OK to close the application. The update is required before continuing.")
+        return True
 
 
 # One-time activation: the application never stores the entered password.
