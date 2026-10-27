@@ -1,15 +1,15 @@
 {
-  "version": "1.0.6.9",
+  "version": "1.0.7",
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 12956,
-      "sha256": "3db8a43b660e09ad744fb60fac2bba73be859d8beeaa7b4a0f6c06e1f27beb0b"
+      "size": 13335,
+      "sha256": "04cc019ac36da6cc18e385a764025e3986f01dc47ea741650f48911a7fee4d7f"
     },
     {
       "path": "README.md",
-      "size": 12956,
-      "sha256": "3db8a43b660e09ad744fb60fac2bba73be859d8beeaa7b4a0f6c06e1f27beb0b"
+      "size": 13335,
+      "sha256": "04cc019ac36da6cc18e385a764025e3986f01dc47ea741650f48911a7fee4d7f"
     },
     {
       "path": "RUN_GUI.bat",
@@ -18,13 +18,18 @@
     },
     {
       "path": "UPLOAD_TO_SERVER.txt",
-      "size": 374,
-      "sha256": "1f961280e9f5d20f3c42593d7994d2b848d5fca20f770b9e9e8ba206804d785e"
+      "size": 307,
+      "sha256": "8657866d15d85257f12c5bc3386189c6bb37b7959ff7a8c44308711903502bfb"
     },
     {
       "path": "VERSION",
-      "size": 8,
-      "sha256": "f8d09433f36f8da79860c59f128121fcc8e0a1bcc27891f278a92aa5001b587e"
+      "size": 6,
+      "sha256": "6d6b9230dd8b8aac527f8929b7c2fc1fa0365deccca856216de979d6f5c6a6fe"
+    },
+    {
+      "path": "WASM_RECOVERY_GUIDELINE.md",
+      "size": 3978,
+      "sha256": "114b66b2c0a07faa5c6fc1dab08cb66c2abb1ca0adae3168a4230454da51ad70"
     },
     {
       "path": "castle_power_detector.py",
@@ -43,8 +48,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 42443,
-      "sha256": "5cb90a4a02b857e768027ad4e08852dc8f0b865314b0cc672bafe984e37c95d7"
+      "size": 42439,
+      "sha256": "2edce7b3f2829ef1d32cfc6c32490b07004fce37e412e1aaa0562a50ea466872"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -54,7 +59,7 @@
     {
       "path": "gotwic_scanner_v2_2.py",
       "size": 28703,
-      "sha256": "20cdbcda4f4a8bc47077bff3ab1d324ffe22be3f100e17a72dc39d35ac184c69"
+      "sha256": "094836626a89853dda376b5c2413e68134e09d79c0b4579815f9b98c504c8aa1"
     },
     {
       "path": "live_truce_scanner_v5.py",

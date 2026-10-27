@@ -1,3 +1,7 @@
+## v1.0.7 — WASM navigation recovery
+
+Updated verified Unity WASM navigation from slot 62958 / function 145867 to slot 62960 / function 145870 for game build `2.81.0_39b7b26851`. The existing five navigation arguments and castle decoder remain unchanged. See `WASM_RECOVERY_GUIDELINE.md` for the reusable recovery procedure. Full scanner regression testing is still required.
+
 ## v1.0.6.8 — mandatory detected updates
 
 When the GitHub version manifest announces a newer version, the update prompt is mandatory: declining the update exits the application. Download or staging failure after an update is detected also exits instead of launching the outdated GUI. If the version check itself fails before any newer version is confirmed, the installed GUI can still launch (offline availability). Activation state and lockout persist across updates.
