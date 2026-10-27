@@ -1,30 +1,30 @@
 {
-  "version": "1.0.6.8",
+  "version": "1.0.6.9",
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 12457,
-      "sha256": "9e42ef94bfcbf07ea48e5ea320c9607397a0e1d06a90046cb35a4cc23daf338e"
+      "size": 12956,
+      "sha256": "3db8a43b660e09ad744fb60fac2bba73be859d8beeaa7b4a0f6c06e1f27beb0b"
     },
     {
       "path": "README.md",
-      "size": 12457,
-      "sha256": "9e42ef94bfcbf07ea48e5ea320c9607397a0e1d06a90046cb35a4cc23daf338e"
+      "size": 12956,
+      "sha256": "3db8a43b660e09ad744fb60fac2bba73be859d8beeaa7b4a0f6c06e1f27beb0b"
     },
     {
       "path": "RUN_GUI.bat",
-      "size": 233,
-      "sha256": "5c7e5beb5a147844f174e2085d50edf3088735cd0a7c481e1f4be4f9d7e82217"
+      "size": 80,
+      "sha256": "4c7e2fcf3d8128f8a34c6652813d0d68e67c003ec0461c0344e46a36fb772e54"
     },
     {
       "path": "UPLOAD_TO_SERVER.txt",
-      "size": 484,
-      "sha256": "8ba43880256d551888935e7605034030df62b744ed4bb7e3dbd7589046c129b7"
+      "size": 374,
+      "sha256": "1f961280e9f5d20f3c42593d7994d2b848d5fca20f770b9e9e8ba206804d785e"
     },
     {
       "path": "VERSION",
       "size": 8,
-      "sha256": "7bb56f6fc9f72e02a3c776cd6e331a21c83ee7ed59c77348ff77039bbfeb5078"
+      "sha256": "f8d09433f36f8da79860c59f128121fcc8e0a1bcc27891f278a92aa5001b587e"
     },
     {
       "path": "castle_power_detector.py",
@@ -44,7 +44,7 @@
     {
       "path": "gotwic_gui.py",
       "size": 42443,
-      "sha256": "e580188ea0b84202bf28dd565333173620705537d626e927055184055e1ae4c9"
+      "sha256": "5cb90a4a02b857e768027ad4e08852dc8f0b865314b0cc672bafe984e37c95d7"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -75,6 +75,11 @@
       "path": "requirements_gui.txt",
       "size": 67,
       "sha256": "7c5d1acda8daf1bd65abaeea390a9dc96590b41db87a9b1035c91104276f66d4"
+    },
+    {
+      "path": "startup.py",
+      "size": 3473,
+      "sha256": "390b45795545f0c26fc9303d1cae4ebe37ceb2b2c4b9cb8977fd43260d7da819"
     },
     {
       "path": "updater.py",

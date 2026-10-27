@@ -207,3 +207,7 @@ Updates use https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main
 ## v1.0.6.5 — numeric power sorting
 
 Live results and Castle Explorer now sort Power (M), X and Y numerically using dedicated numeric table items. Sorting is retained when tables refresh, filters change or power values are updated. Double-click and context-menu power lookups continue to resolve castle identity from displayed row data.
+
+
+## v1.0.6.9: Automatic dependency bootstrap
+Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading the GUI, installs missing or incompatible packages using the same Python 3.13 interpreter, and verifies installation. If installation fails, startup stops with an error. The check repeats on subsequent launches, installing only when needed. An internet connection and pip are needed for missing packages. Existing mandatory updates and one-time activation remain in place.

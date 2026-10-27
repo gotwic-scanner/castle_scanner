@@ -1,10 +1,3 @@
-GOTWiC Scanner v1.0.5 changed-files release
+GOTWiC Scanner v1.0.6.9 complete changed-files release
 
-Upload version.json and ALL files listed in its files array to:
-https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/
-
-Keep filenames unchanged. SHA-256 and sizes must match the manifest.
-The v1.0.4 updater detects 1.0.5 and installs changed files.
-Existing local files not listed in the manifest are left untouched.
-
-Publish the 1.0.5 files and version.json to the main branch of github.com/gotwic-scanner/castle_scanner.
+Upload all files listed in version.json to the root of https://github.com/gotwic-scanner/castle_scanner (main branch). Upload version.json LAST. The updater stages and verifies changed files; it does not remove unrelated local files. RUN_GUI.bat launches startup.py for automatic dependency checks before GUI startup.
