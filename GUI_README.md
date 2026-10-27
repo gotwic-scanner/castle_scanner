@@ -1,3 +1,7 @@
+## v1.0.8.3 — CSV cleanup
+
+Settings now includes **Delete all CSV files**. Clicking it immediately deletes every `*.csv` file in the currently selected CSV snapshot folder without a confirmation prompt. Snapshot tables refresh afterward. Files in other directories and non-CSV files are untouched. Deletion errors are shown in the scanner console.
+
 ## v1.0.7 — WASM navigation recovery
 
 Updated verified Unity WASM navigation from slot 62958 / function 145867 to slot 62960 / function 145870 for game build `2.81.0_39b7b26851`. The existing five navigation arguments and castle decoder remain unchanged. See `WASM_RECOVERY_GUIDELINE.md` for the reusable recovery procedure. Full scanner regression testing is still required.
@@ -215,3 +219,7 @@ Live results and Castle Explorer now sort Power (M), X and Y numerically using d
 
 ## v1.0.6.9: Automatic dependency bootstrap
 Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading the GUI, installs missing or incompatible packages using the same Python 3.13 interpreter, and verifies installation. If installation fails, startup stops with an error. The check repeats on subsequent launches, installing only when needed. An internet connection and pip are needed for missing packages. Existing mandatory updates and one-time activation remain in place.
+
+## v1.0.8.2.1 website CSV upload
+
+Optional HTTPS CSV upload and manual retry are available in Settings. See `WEB_UPLOAD_SETUP.md` for server setup. No website credentials are included in this package.

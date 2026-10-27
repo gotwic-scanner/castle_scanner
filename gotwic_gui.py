@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.7
+# GOTWiC Scanner GUI package release: 1.0.8.3
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -13,8 +13,9 @@ import signal
 import subprocess
 import sys
 import threading
+from web_upload import upload_csv, UPLOAD_ENDPOINT
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QSettings
 from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout,
     QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu,
@@ -96,6 +97,8 @@ class MainWindow(QMainWindow):
         self.active_scan_csv = None  # Exact CSV emitted by the latest completed GUI scan.
         self.pending_scan_csv = None
         self.live_results = []
+        self.upload_running = False
+        self.upload_last_csv = None
         self.power_proc = None
         self.power_target = None
         self.tabs = QTabWidget()
@@ -198,9 +201,55 @@ class MainWindow(QMainWindow):
         layout.addLayout(form)
         reload_btn = QPushButton('Reload CSV snapshots'); reload_btn.clicked.connect(self.refresh_data)
         layout.addWidget(reload_btn)
+        delete_csv_btn = QPushButton('Delete all CSV files')
+        delete_csv_btn.clicked.connect(self.delete_all_csv_files)
+        layout.addWidget(delete_csv_btn)
         layout.addWidget(QLabel('SQL import uses scanner database environment variables (GOTWIC_DB_*). Enable SQL import in Scan configuration.'))
+        web_group = QGroupBox('Website CSV upload (optional)')
+        web_form = QFormLayout(web_group)
+        self.web_enabled = QCheckBox('Automatically upload CSV after scan')
+        self.web_retry = QPushButton('Upload / retry latest CSV')
+        self.web_retry.clicked.connect(self.retry_web_upload)
+        self.web_status = QLabel('Web upload not configured')
+        web_form.addRow(self.web_enabled)
+        web_form.addRow(self.web_retry)
+        web_form.addRow('Upload status', self.web_status)
+        layout.addWidget(web_group)
+        self.web_settings = QSettings('GOTWiC', 'Scanner')
+        self.web_enabled.setChecked(self.web_settings.value('web_enabled', False, type=bool))
+        self.web_enabled.toggled.connect(self.save_web_settings)
+
         layout.addStretch()
         self.tabs.addTab(tab,'Settings')
+
+    def save_web_settings(self):
+        self.web_settings.setValue('web_enabled', self.web_enabled.isChecked())
+
+    def retry_web_upload(self):
+        path = self.active_scan_csv or self.upload_last_csv
+        if path is None:
+            self.web_status.setText('No completed CSV available')
+            return
+        self.start_web_upload(path, manual=True)
+
+    def start_web_upload(self, path, manual=False):
+        if self.upload_running:
+            self.web_status.setText('Upload already in progress')
+            return
+        if not manual and not self.web_enabled.isChecked():
+            return
+        url = UPLOAD_ENDPOINT
+        self.upload_running = True
+        self.upload_last_csv = Path(path)
+        self.web_retry.setEnabled(False)
+        self.web_status.setText('Uploading CSV...')
+        def worker():
+            try:
+                result = upload_csv(path, url)
+                self.messages.put(('upload_ok', result))
+            except Exception as exc:
+                self.messages.put(('upload_error', str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
 
     @staticmethod
     def make_table(headers):
@@ -289,6 +338,30 @@ class MainWindow(QMainWindow):
         folder=QFileDialog.getExistingDirectory(self,'CSV folder',self.folder.text())
         if folder:
             self.folder.setText(folder); self.refresh_data()
+
+    def delete_all_csv_files(self):
+        """Immediately remove every .csv file in the selected snapshot folder."""
+        folder = Path(self.folder.text())
+        deleted = 0
+        failures = []
+        for path in folder.glob('*.csv'):
+            try:
+                path.unlink()
+                deleted += 1
+            except OSError as exc:
+                failures.append(f'{path.name}: {exc}')
+        # Forget deleted snapshots and any pending upload reference to a missing file.
+        if self.active_scan_csv is not None and not self.active_scan_csv.is_file():
+            self.active_scan_csv = None
+        if self.pending_scan_csv is not None and not self.pending_scan_csv.is_file():
+            self.pending_scan_csv = None
+        if self.upload_last_csv is not None and not self.upload_last_csv.is_file():
+            self.upload_last_csv = None
+        self.refresh_data()
+        self.console.append(f'CSV cleanup: deleted {deleted} file(s) from {folder}')
+        if failures:
+            self.console.append('CSV cleanup errors: ' + '; '.join(failures))
+        self.status.setText(f'Deleted {deleted} CSV file(s)' + (f'; {len(failures)} failed' if failures else ''))
 
     def refresh_data(self):
         self.scans=read_snapshots(Path(self.folder.text()))
@@ -402,6 +475,17 @@ class MainWindow(QMainWindow):
         for _ in range(300):
             try:kind,value=self.messages.get_nowait()
             except queue.Empty:break
+            if kind=='upload_ok':
+                self.upload_running = False
+                self.web_retry.setEnabled(True)
+                self.web_status.setText('Already imported' if value.get('duplicate') else f"Uploaded {value.get('inserted_rows', 0)} rows")
+                continue
+            if kind=='upload_error':
+                self.upload_running = False
+                self.web_retry.setEnabled(True)
+                self.web_status.setText('Upload failed — retry available')
+                self.console.append('Web upload: ' + value)
+                continue
             if kind=='line':
                 clean_line = re.sub(r'\x1b\[[0-9;]*m', '', value).strip()
                 # Scanner status lines are rendered as structured, color-coded table rows.
@@ -438,6 +522,8 @@ class MainWindow(QMainWindow):
                 self.proc=None;self.start_btn.setEnabled(True);self.ready_btn.setEnabled(False);self.stop_btn.setEnabled(False)
                 if self.pending_scan_csv is not None:
                     self.active_scan_csv = self.pending_scan_csv
+                    if value == 0 and self.active_scan_csv.is_file():
+                        self.start_web_upload(self.active_scan_csv)
                 self.refresh_data()
                 if self.pending_scan_csv is None:
                     self.status.setText('Scan finished — no CSV path reported; manual power lookup unavailable')
@@ -601,7 +687,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.7'
+APP_VERSION = '1.0.8.3'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
