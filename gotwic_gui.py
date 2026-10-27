@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.3
+# GOTWiC Scanner GUI package release: 1.0.8.4
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -110,6 +110,7 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(150)
+        self.cleanup_expired_csv()
         self.refresh_data()
 
     def build_scanner(self):
@@ -204,6 +205,11 @@ class MainWindow(QMainWindow):
         delete_csv_btn = QPushButton('Delete all CSV files')
         delete_csv_btn.clicked.connect(self.delete_all_csv_files)
         layout.addWidget(delete_csv_btn)
+        self.csv_retention_days = QSpinBox()
+        self.csv_retention_days.setRange(0, 36500)
+        self.csv_retention_days.setSpecialValueText('0 — keep indefinitely')
+        form.addRow('Auto CSV cleanup (days)', self.csv_retention_days)
+        layout.addWidget(QLabel('0 = keep CSV files indefinitely; cleanup runs at startup and after scans.'))
         layout.addWidget(QLabel('SQL import uses scanner database environment variables (GOTWIC_DB_*). Enable SQL import in Scan configuration.'))
         web_group = QGroupBox('Website CSV upload (optional)')
         web_form = QFormLayout(web_group)
@@ -216,6 +222,8 @@ class MainWindow(QMainWindow):
         web_form.addRow('Upload status', self.web_status)
         layout.addWidget(web_group)
         self.web_settings = QSettings('GOTWiC', 'Scanner')
+        self.csv_retention_days.setValue(self.web_settings.value('csv_retention_days', 14, type=int))
+        self.csv_retention_days.valueChanged.connect(lambda days: self.web_settings.setValue('csv_retention_days', days))
         self.web_enabled.setChecked(self.web_settings.value('web_enabled', False, type=bool))
         self.web_enabled.toggled.connect(self.save_web_settings)
 
@@ -338,6 +346,32 @@ class MainWindow(QMainWindow):
         folder=QFileDialog.getExistingDirectory(self,'CSV folder',self.folder.text())
         if folder:
             self.folder.setText(folder); self.refresh_data()
+
+    def cleanup_expired_csv(self):
+        """Remove CSVs older than the configured retention using creation time on Windows."""
+        days = self.web_settings.value('csv_retention_days', 14, type=int)
+        if days <= 0:
+            return
+        import time
+        cutoff = time.time() - days * 86400
+        folder = Path(self.folder.text())
+        deleted = 0
+        failures = []
+        for path in folder.glob('*.csv'):
+            try:
+                if path.stat().st_ctime < cutoff:
+                    path.unlink()
+                    deleted += 1
+            except OSError as exc:
+                failures.append(f'{path.name}: {exc}')
+        if deleted or failures:
+            for attr in ('active_scan_csv', 'pending_scan_csv', 'upload_last_csv'):
+                candidate = getattr(self, attr)
+                if candidate is not None and not candidate.is_file():
+                    setattr(self, attr, None)
+            self.console.append(f'Automatic CSV cleanup ({days} days): deleted {deleted} file(s)')
+            if failures:
+                self.console.append('Automatic CSV cleanup errors: ' + '; '.join(failures))
 
     def delete_all_csv_files(self):
         """Immediately remove every .csv file in the selected snapshot folder."""
@@ -524,6 +558,7 @@ class MainWindow(QMainWindow):
                     self.active_scan_csv = self.pending_scan_csv
                     if value == 0 and self.active_scan_csv.is_file():
                         self.start_web_upload(self.active_scan_csv)
+                self.cleanup_expired_csv()
                 self.refresh_data()
                 if self.pending_scan_csv is None:
                     self.status.setText('Scan finished — no CSV path reported; manual power lookup unavailable')
@@ -687,7 +722,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.3'
+APP_VERSION = '1.0.8.4'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

@@ -1,4 +1,4 @@
-## v1.0.8.3 — CSV cleanup
+## v1.0.8.4 — CSV cleanup
 
 Settings now includes **Delete all CSV files**. Clicking it immediately deletes every `*.csv` file in the currently selected CSV snapshot folder without a confirmation prompt. Snapshot tables refresh afterward. Files in other directories and non-CSV files are untouched. Deletion errors are shown in the scanner console.
 
@@ -223,3 +223,5 @@ Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading 
 ## v1.0.8.2.1 website CSV upload
 
 Optional HTTPS CSV upload and manual retry are available in Settings. See `WEB_UPLOAD_SETUP.md` for server setup. No website credentials are included in this package.
+
+CSV retention: Settings > Auto CSV cleanup (days), default 14; 0 disables. Cleanup on startup and after scan.

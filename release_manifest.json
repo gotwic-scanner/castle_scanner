@@ -1,15 +1,15 @@
 {
-  "version": "1.0.8.3",
+  "version": "1.0.8.4",
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 13888,
-      "sha256": "6c4643e918ddb252dc3fe1f3f52efdeda6f989e31630d569e7347f61dae2cf14"
+      "size": 13999,
+      "sha256": "c74db2ef8f2a5be094310fdff5fcd35de5981cb8d496f3d6c2d86bd0a12ede1f"
     },
     {
       "path": "README.md",
-      "size": 13888,
-      "sha256": "6c4643e918ddb252dc3fe1f3f52efdeda6f989e31630d569e7347f61dae2cf14"
+      "size": 13999,
+      "sha256": "c74db2ef8f2a5be094310fdff5fcd35de5981cb8d496f3d6c2d86bd0a12ede1f"
     },
     {
       "path": "RUN_GUI.bat",
@@ -17,24 +17,14 @@
       "sha256": "4c7e2fcf3d8128f8a34c6652813d0d68e67c003ec0461c0344e46a36fb772e54"
     },
     {
-      "path": "UPLOAD_TO_SERVER.txt",
-      "size": 261,
-      "sha256": "07ba615d4e04c7b1a809001ea44b945c6e51b7f28fcf6b99a063ad67457a9e0c"
-    },
-    {
       "path": "VERSION",
       "size": 8,
-      "sha256": "1ed19dfdbb17289cae08ebdeb93337f710d6591fd9db60f8f0b7f828c2b18069"
+      "sha256": "57c14a7047cd640922216b69e276a5d292fc642a5467a6b2cd34d776dc0e3e0f"
     },
     {
       "path": "WASM_RECOVERY_GUIDELINE.md",
       "size": 3978,
       "sha256": "114b66b2c0a07faa5c6fc1dab08cb66c2abb1ca0adae3168a4230454da51ad70"
-    },
-    {
-      "path": "WEB_UPLOAD_SETUP.md",
-      "size": 1164,
-      "sha256": "6e3651754b9290c4f0d7b9f8ed89c142c945f1fab4981dc213c5e9a9bf21f628"
     },
     {
       "path": "castle_power_detector.py",
@@ -53,8 +43,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 46548,
-      "sha256": "4e9af5eeea02b8b1f295d5183b9ba1d476d6d74cbdf3c74dc371e1afbfa15cd1"
+      "size": 48363,
+      "sha256": "e9b2223b92e5b3bddc62bb3322083552c7a7688252cf56af4d9df599ba5f2fc5"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -85,26 +75,6 @@
       "path": "requirements_gui.txt",
       "size": 67,
       "sha256": "7c5d1acda8daf1bd65abaeea390a9dc96590b41db87a9b1035c91104276f66d4"
-    },
-    {
-      "path": "server/import.php",
-      "size": 6245,
-      "sha256": "6f5dded5f553b016500b76c458814645f8da755a99feadc59d8525c550d7494c"
-    },
-    {
-      "path": "server/scanner_uploads.sql",
-      "size": 346,
-      "sha256": "0b4621815e46cf64f77660b714138b35a1be101b315e203f167a5ca5ce5e4b5c"
-    },
-    {
-      "path": "server/upload.php",
-      "size": 2689,
-      "sha256": "9aa5fba80795a8972d2e36d711873513263b442fcedae2a4b7257e2f7f2a4a27"
-    },
-    {
-      "path": "server/web_import_atomic.php",
-      "size": 2681,
-      "sha256": "5b2a54807964a152d751db137d6d9f8dda8aa3b4c379b50a0f88571088e807a9"
     },
     {
       "path": "startup.py",
