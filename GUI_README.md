@@ -1,3 +1,9 @@
+## v1.0.8.5 — WASM navigation, buffer and live player filter
+
+- Updated verified WASM 2.82.0_aff1eee501 navigation: table slot 63014, function 117459 (five arguments).
+- Default scan response buffer increased to 24 (range 1–32).
+- Current Scan Player input now filters the live results table immediately, case-insensitively and by partial name. Clearing it restores all matching status/power rows. Display-only; saved scan output is unaffected.
+
 ## v1.0.8.4 — CSV cleanup
 
 Settings now includes **Delete all CSV files**. Clicking it immediately deletes every `*.csv` file in the currently selected CSV snapshot folder without a confirmation prompt. Snapshot tables refresh afterward. Files in other directories and non-CSV files are untouched. Deletion errors are shown in the scanner console.

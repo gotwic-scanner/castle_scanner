@@ -1,15 +1,15 @@
 {
-  "version": "1.0.8.4",
+  "version": "1.0.8.5",
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 13999,
-      "sha256": "c74db2ef8f2a5be094310fdff5fcd35de5981cb8d496f3d6c2d86bd0a12ede1f"
+      "size": 14449,
+      "sha256": "01d1350ccd905a05e124e7f8be7618a87b027805b52e9fb1de7474692b160e0b"
     },
     {
       "path": "README.md",
-      "size": 13999,
-      "sha256": "c74db2ef8f2a5be094310fdff5fcd35de5981cb8d496f3d6c2d86bd0a12ede1f"
+      "size": 14449,
+      "sha256": "01d1350ccd905a05e124e7f8be7618a87b027805b52e9fb1de7474692b160e0b"
     },
     {
       "path": "RUN_GUI.bat",
@@ -19,7 +19,7 @@
     {
       "path": "VERSION",
       "size": 8,
-      "sha256": "57c14a7047cd640922216b69e276a5d292fc642a5467a6b2cd34d776dc0e3e0f"
+      "sha256": "f9163f44f23a4bd16157cb8d296efbb8dbe336f6cfe84fc9f89e0c3ac3f8d64d"
     },
     {
       "path": "WASM_RECOVERY_GUIDELINE.md",
@@ -43,8 +43,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 48363,
-      "sha256": "e9b2223b92e5b3bddc62bb3322083552c7a7688252cf56af4d9df599ba5f2fc5"
+      "size": 48588,
+      "sha256": "77718b29c5e6d0dff53b677c1ad7cc8de7fb50a7ae7109c96497d7d3cd091dce"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -53,8 +53,8 @@
     },
     {
       "path": "gotwic_scanner_v2_2.py",
-      "size": 28703,
-      "sha256": "094836626a89853dda376b5c2413e68134e09d79c0b4579815f9b98c504c8aa1"
+      "size": 28705,
+      "sha256": "e89ec7aac8b74905337d1e3ee7c93981af4219b637185c82c6506ca993d3ea7f"
     },
     {
       "path": "live_truce_scanner_v5.py",

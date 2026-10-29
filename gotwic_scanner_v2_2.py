@@ -72,14 +72,14 @@ class ColorTracker(LiveTracker):
 
 PREFLIGHT="""(()=>{const t=window.gameInstance?.Module?.asm?.__indirect_function_table;
 if(!t)return {ok:false,error:'WASM table unavailable in Unity context'};
-const f=t.get(62960);
-if(typeof f!=='function')return {ok:false,error:'Table slot 62960 not callable'};
-if(f.name!=='145870')return {ok:false,error:'Function identity mismatch',name:f.name};
+const f=t.get(63014);
+if(typeof f!=='function')return {ok:false,error:'Table slot 63014 not callable'};
+if(f.name!=='117459')return {ok:false,error:'Function identity mismatch',name:f.name};
 return {ok:true,functionName:f.name}})()"""
 NAV="""(()=>{const t=window.gameInstance?.Module?.asm?.__indirect_function_table;
 if(!t)return {ok:false,error:'WASM table unavailable'};
-const f=t.get(62960);
-if(typeof f!=='function'||f.name!=='145870')return {ok:false,error:'Function identity mismatch',name:f?.name};
+const f=t.get(63014);
+if(typeof f!=='function'||f.name!=='117459')return {ok:false,error:'Function identity mismatch',name:f?.name};
 try{const v=f(__MAPID__,150,200,250,300);
 return {ok:true,status:'returned',returnValue:String(v)}}
 catch(e){return {ok:false,error:String(e),stack:String(e.stack||'').slice(0,600)}}})()"""
@@ -215,7 +215,7 @@ def main():
     p.add_argument('--settle',type=float,default=3.0)
     p.add_argument('--response-timeout',type=float,default=1.5,help='Seconds to await a 9001 response after navigation')
     p.add_argument('--retries',type=int,default=2,help='Additional attempts to recover a missing batch response')
-    p.add_argument('--buffer','--buf',dest='buffer',type=int,default=4,help='Maximum outstanding map responses (default 4; range 1..32)')
+    p.add_argument('--buffer','--buf',dest='buffer',type=int,default=24,help='Maximum outstanding map responses (default 24; range 1..32)')
     p.add_argument('--report',default='gotwic_scanner_v2_1_report.json')
     p.add_argument('--db-host',default=os.getenv('GOTWIC_DB_HOST','127.0.0.1'))
     p.add_argument('--db-port',type=int,default=int(os.getenv('GOTWIC_DB_PORT','3306')))

@@ -119,13 +119,13 @@ class MainWindow(QMainWindow):
         self.kingdom = QSpinBox(); self.kingdom.setRange(1,999999); self.kingdom.setValue(542)
         self.mode = QComboBox(); self.mode.addItems(['auto','manual'])
         self.show_filter = QComboBox(); self.show_filter.addItems(['ALL','OPEN'])
-        self.player = QLineEdit(); self.player.setPlaceholderText('Optional console-only player filter')
+        self.player = QLineEdit(); self.player.setPlaceholderText('Filter current scan by player name'); self.player.textChanged.connect(self.refresh_live_table)
         self.minimum_power = QComboBox()
         self.minimum_power.addItem('ALL (no minimum)', 0.0)
         for millions in (1000, 1250, 1500, 1750, 2000):
             self.minimum_power.addItem(f'{millions / 1000:.3f} billion', float(millions))
         self.minimum_power.currentIndexChanged.connect(self.refresh_live_table)
-        self.buffer = QSpinBox(); self.buffer.setRange(1,32); self.buffer.setValue(4)
+        self.buffer = QSpinBox(); self.buffer.setRange(1,32); self.buffer.setValue(24)
         self.verbose_power = QCheckBox('Castle power (verbose) — slower scan')
         self.enable_sql = QCheckBox('Enable SQL import (omit --no-db)')
         form.addWidget(QLabel('Kingdom'),0,0); form.addWidget(self.kingdom,0,1)
@@ -328,6 +328,7 @@ class MainWindow(QMainWindow):
     def refresh_live_table(self, *_):
         status_filter = self.live_status_filter.currentText()
         minimum_millions = float(self.minimum_power.currentData() or 0)
+        player_term = self.player.text().strip().casefold()
         def meets_minimum(record):
             if minimum_millions <= 0:
                 return True
@@ -337,7 +338,8 @@ class MainWindow(QMainWindow):
                 return False
         visible = [r for r in self.live_results
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
-                   and meets_minimum(r)]
+                   and meets_minimum(r)
+                   and (not player_term or player_term in str(r.get('name') or '').casefold())]
         rows = [[r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
@@ -452,7 +454,7 @@ class MainWindow(QMainWindow):
              '--show',self.show_filter.currentText(),'--buf',str(self.buffer.value()),'--report',str(report),
              '--mask',str(maskfile)]
         if not self.enable_sql.isChecked():cmd+=['--no-db']
-        if self.player.text().strip():cmd+=['--player',self.player.text().strip()]
+        # Player filtering is GUI display-only; never suppress scan data or console ingestion.
         if self.verbose_power.isChecked():cmd+=['--verbose']
         self.pending_scan_csv = None
         self.active_scan_csv = None
@@ -722,7 +724,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.4'
+APP_VERSION = '1.0.8.5'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
