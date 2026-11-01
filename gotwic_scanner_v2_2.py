@@ -85,10 +85,10 @@ return {ok:true,status:'returned',returnValue:String(v)}}
 catch(e){return {ok:false,error:String(e),stack:String(e.stack||'').slice(0,600)}}})()"""
 
 # v1.0.4: event-driven 20007 castle power, enabled only by -v / --verbose.
-POWER_TIMEOUT = 4.0
-POWER_CASTLE_SETTLE = 0.1
-POWER_WATER_SETTLE = 0.1
-POWER_DISMISS_WAIT = 0.05
+POWER_TIMEOUT = 2.5
+POWER_CASTLE_SETTLE = 0.05
+POWER_WATER_SETTLE = 0.05
+POWER_DISMISS_WAIT = 0.025
 POWER_WATER_MAP_ID = 325 * 720 + 125
 
 def _power_varint(data, offset):
@@ -423,7 +423,7 @@ def main():
                             break
                         poll()
                     if power==0:
-                        raise TimeoutError('no matching 20007 profile within four seconds')
+                        raise TimeoutError('no matching 20007 profile within 2.5 seconds')
                 except Exception as exc:
                     power_results['unavailable']+=1
                     if len(power_results['errors'])<30:

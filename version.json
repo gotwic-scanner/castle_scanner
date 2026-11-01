@@ -1,15 +1,15 @@
 {
-  "version": "1.0.8.6",
+  "version": "1.0.8.7",
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 14863,
-      "sha256": "4cbe0fef6080ca85b071dc4de0acbb5bf2bf9f03fc64f4bfcae1f1253807423b"
+      "size": 15189,
+      "sha256": "48bf41733952a58418fd6a23225c269321b20766e9869d4edea6f3df88582403"
     },
     {
       "path": "README.md",
-      "size": 14863,
-      "sha256": "4cbe0fef6080ca85b071dc4de0acbb5bf2bf9f03fc64f4bfcae1f1253807423b"
+      "size": 15189,
+      "sha256": "48bf41733952a58418fd6a23225c269321b20766e9869d4edea6f3df88582403"
     },
     {
       "path": "RUN_GUI.bat",
@@ -19,7 +19,7 @@
     {
       "path": "VERSION",
       "size": 8,
-      "sha256": "436735c33922b2b60f559bc44d5714444e68d3c00bf5012415f9833b29909d0a"
+      "sha256": "6bfdc98d0106836443ba629dbc82c0944cc1cafe24b5e02320c27a9c95e9ec58"
     },
     {
       "path": "WASM_RECOVERY_GUIDELINE.md",
@@ -28,8 +28,8 @@
     },
     {
       "path": "castle_power_detector.py",
-      "size": 6130,
-      "sha256": "9ac43793905d968371f412295cf309df17796741ef4454422f8ee7b0fff7be75"
+      "size": 7684,
+      "sha256": "202131ce535387c93727c52220bb012048d34f7a197fcf93b8729de5a15c1f6e"
     },
     {
       "path": "decode_bubble_events.py",
@@ -43,8 +43,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 55265,
-      "sha256": "67f20a0ebd6c2cc51c89e8768041470ba2f6ce61c1201dd3747bcc034bc1d459"
+      "size": 59183,
+      "sha256": "2e61eed495b710cf0f2e774c88c8a4da2c1ed5dbc2169073b31079d698bfc7e4"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -53,8 +53,8 @@
     },
     {
       "path": "gotwic_scanner_v2_2.py",
-      "size": 28705,
-      "sha256": "e89ec7aac8b74905337d1e3ee7c93981af4219b637185c82c6506ca993d3ea7f"
+      "size": 28707,
+      "sha256": "6f1c495f70e751e3b9634de254d77e7927b1ac3cb23c1d7712120cac780fab8e"
     },
     {
       "path": "live_truce_scanner_v5.py",

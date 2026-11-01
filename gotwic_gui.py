@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.6
+# GOTWiC Scanner GUI package release: 1.0.8.7
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -106,6 +106,8 @@ class MainWindow(QMainWindow):
         self.bulk_power_done = 0
         self.bulk_power_failed = 0
         self.bulk_power_status = None
+        self.bulk_worker = None
+        self.bulk_messages = queue.Queue()
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
         self.build_scanner()
@@ -548,6 +550,7 @@ class MainWindow(QMainWindow):
 
     def tick(self):
         self.poll_power()
+        self.poll_bulk_power()
         for _ in range(300):
             try:kind,value=self.messages.get_nowait()
             except queue.Empty:break
@@ -757,7 +760,82 @@ class MainWindow(QMainWindow):
         self.bulk_protected_btn.setEnabled(False)
         self.bulk_unprotected_btn.setEnabled(False)
         self.console.append(f'Bulk {status}: checking {len(targets)} castles missing power from {snapshot.name}')
-        self.next_bulk_power()
+        self.launch_bulk_worker()
+
+    def launch_bulk_worker(self):
+        cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--batch', '--port', str(self.port.value())]
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUTF8'] = '1'
+        try:
+            worker = subprocess.Popen(cmd, cwd=str(BASE), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace',
+                                      bufsize=1, env=env)
+            self.bulk_worker = worker
+            targets = list(self.bulk_power_queue)
+            self.bulk_power_queue = targets
+            def read_results():
+                try:
+                    for line in worker.stdout:
+                        try:
+                            self.bulk_messages.put(json.loads(line))
+                        except json.JSONDecodeError:
+                            self.bulk_messages.put({'success':False,'error':'Invalid worker response'})
+                finally:
+                    self.bulk_messages.put({'_finished':True})
+            threading.Thread(target=read_results, daemon=True).start()
+            try:
+                for target in targets:
+                    worker.stdin.write(json.dumps({k:target[k] for k in ('x','y','name')}, ensure_ascii=False)+'\n')
+                worker.stdin.flush()
+                worker.stdin.close()
+            except (BrokenPipeError, OSError) as exc:
+                self.console.append(f'Bulk worker input failed: {exc}')
+        except OSError as exc:
+            self.console.append(f'Bulk worker startup failed: {exc}')
+            self.bulk_worker = None
+            self.bulk_power_failed = self.bulk_power_total
+            self.bulk_power_done = self.bulk_power_total
+            self.finish_bulk_power()
+
+    def finish_bulk_power(self):
+        status = self.bulk_power_status
+        self.bulk_power_status = None
+        self.bulk_worker = None
+        self.bulk_protected_btn.setEnabled(True)
+        self.bulk_unprotected_btn.setEnabled(True)
+        message = (f'Bulk {status} complete: {self.bulk_power_done - self.bulk_power_failed} saved, '
+                   f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
+        self.console.append(message)
+        self.status.setText(message)
+
+    def poll_bulk_power(self):
+        if self.bulk_worker is None:
+            return
+        while True:
+            try:
+                result = self.bulk_messages.get_nowait()
+            except queue.Empty:
+                break
+            if result.get('_finished'):
+                if self.bulk_power_done < self.bulk_power_total:
+                    remaining = self.bulk_power_total - self.bulk_power_done
+                    self.bulk_power_failed += remaining
+                    self.bulk_power_done += remaining
+                    self.console.append(f'Bulk worker ended early: {remaining} unprocessed castles')
+                self.finish_bulk_power()
+                break
+            if result.get('fatal'):
+                self.console.append(f"Bulk CDP initialization failed: {result['fatal']}")
+                continue
+            if self.bulk_power_done >= len(self.bulk_power_queue):
+                continue
+            target = self.bulk_power_queue[self.bulk_power_done]
+            self.power_target = target
+            self.handle_power_result(result)
+            self.power_target = None
+            self.bulk_power_done += 1
+            self.status.setText(f'Bulk {self.bulk_power_status}: {self.bulk_power_done}/{self.bulk_power_total}')
 
     def next_bulk_power(self):
         if self.bulk_power_status is None:
@@ -816,8 +894,17 @@ class MainWindow(QMainWindow):
         out, err = proc.communicate()
         try:
             result = json.loads(out)
-            if proc.returncode or not result.get('success'):
-                raise ValueError(result.get('error') or err or 'Power extraction failed')
+        except (ValueError, TypeError):
+            result = {'success':False,'error':err or out or 'Invalid power lookup output'}
+        if proc.returncode and result.get('success'):
+            result = {'success':False,'error':err or 'Power detector exited unsuccessfully'}
+        self.handle_power_result(result)
+        self.power_target = None
+
+    def handle_power_result(self, result):
+        try:
+            if not result.get('success'):
+                raise ValueError(result.get('error') or 'Power extraction failed')
             target = self.power_target
             if result.get('player') != target['name']:
                 raise ValueError('Returned player name does not match the selected castle')
@@ -839,11 +926,6 @@ class MainWindow(QMainWindow):
             else:
                 self.bulk_power_failed += 1
                 self.console.append(f'Bulk power failed ({self.bulk_power_done + 1}/{self.bulk_power_total}): {self.power_target["name"]} — {exc}')
-        finally:
-            self.power_target = None
-            if self.bulk_power_status is not None:
-                self.bulk_power_done += 1
-                QTimer.singleShot(0, self.next_bulk_power)
 
     def closeEvent(self,event):
         if (self.proc is not None and self.proc.poll() is None) or self.power_proc is not None or self.bulk_power_status is not None:
@@ -853,7 +935,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.6'
+APP_VERSION = '1.0.8.7'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

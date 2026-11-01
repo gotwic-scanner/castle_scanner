@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single-castle power lookup over Chrome CDP; prints one JSON result to stdout."""
+"""Power lookup over Chrome CDP, with persistent batch connection support."""
 import argparse
 import base64
 import json
@@ -11,7 +11,7 @@ from gotwic_scanner_v2_2 import (NAV, PREFLIGHT, decode_power_20007, POWER_TIMEO
     POWER_CASTLE_SETTLE, POWER_WATER_SETTLE, POWER_DISMISS_WAIT, POWER_WATER_MAP_ID)
 
 
-def detect(x, y, name, port):
+def power_session(port):
     with urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=5) as response:
         pages = json.load(response)
     page = next((p for p in pages if p.get('type') == 'page' and
@@ -70,7 +70,7 @@ def detect(x, y, name, port):
     try:
         reply(send('Runtime.enable'))
         reply(send('Network.enable',{'maxTotalBufferSize':16000000}))
-        until=time.monotonic()+.3
+        until=time.monotonic()+.15
         while time.monotonic()<until:
             poll()
         valid=[c for c in contexts if c.get('auxData',{}).get('isDefault') and
@@ -82,35 +82,74 @@ def detect(x, y, name, port):
             raise RuntimeError('Game WASM preflight failed')
         viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
         px,py=round(viewport['w']*.8),round(viewport['h']*.75)
-        start=time.monotonic()
-        try:
-            result=evaluate(NAV.replace('__MAPID__',str(y*720+x)),cid)
-            if not result or not result.get('ok'):
-                raise RuntimeError(f'Castle navigation failed: {result}')
-            time.sleep(POWER_CASTLE_SETTLE)
-            deadline=start+POWER_TIMEOUT
-            while time.monotonic()<deadline:
-                for seen, profile in profiles:
-                    if (seen>=start and profile.get('player')==name and
-                        type(profile.get('power')) is int and profile['power']>=0):
-                        power=profile['power']
-                        return {'success':True,'x':x,'y':y,'player':name,'power':power,
-                                'power_millions':f'{power/1000000:.3f}'}
-                poll()
-            raise TimeoutError('No matching castle profile received within four seconds')
-        finally:
+        def lookup(x, y, name):
+            profiles.clear()
+            start=time.monotonic()
             try:
-                evaluate(NAV.replace('__MAPID__',str(POWER_WATER_MAP_ID)),cid)
-                time.sleep(POWER_WATER_SETTLE)
-                for event,extra in [('mouseMoved',{}),('mousePressed',{'button':'left','clickCount':1}),
-                                    ('mouseReleased',{'button':'left','clickCount':1})]:
-                    reply(send('Input.dispatchMouseEvent',{'type':event,'x':px,'y':py,**extra}))
-                time.sleep(POWER_DISMISS_WAIT)
-            except Exception:
-                pass
+                result=evaluate(NAV.replace('__MAPID__',str(y*720+x)),cid)
+                if not result or not result.get('ok'):
+                    raise RuntimeError(f'Castle navigation failed: {result}')
+                time.sleep(POWER_CASTLE_SETTLE)
+                deadline=start+POWER_TIMEOUT
+                while time.monotonic()<deadline:
+                    for seen, profile in profiles:
+                        if (seen>=start and profile.get('player')==name and
+                            type(profile.get('power')) is int and profile['power']>=0):
+                            power=profile['power']
+                            return {'success':True,'x':x,'y':y,'player':name,'power':power,
+                                    'power_millions':f'{power/1000000:.3f}'}
+                    poll()
+                raise TimeoutError('No matching castle profile received within 2.5 seconds')
+            finally:
+                try:
+                    evaluate(NAV.replace('__MAPID__',str(POWER_WATER_MAP_ID)),cid)
+                    time.sleep(POWER_WATER_SETTLE)
+                    for event,extra in [('mouseMoved',{}),('mousePressed',{'button':'left','clickCount':1}),
+                                        ('mouseReleased',{'button':'left','clickCount':1})]:
+                        reply(send('Input.dispatchMouseEvent',{'type':event,'x':px,'y':py,**extra}))
+                    time.sleep(POWER_DISMISS_WAIT)
+                except Exception:
+                    pass
+
+        yield lookup
     finally:
         ws.close()
 
+
+
+def detect(x, y, name, port):
+    session = power_session(port)
+    lookup = next(session)
+    try:
+        return lookup(x, y, name)
+    finally:
+        session.close()
+
+
+def detect_batch(port):
+    """One CDP connection and execution context for the entire ordered batch."""
+    try:
+        session = power_session(port)
+        lookup = next(session)
+    except Exception as exc:
+        print(json.dumps({'fatal': str(exc)}, ensure_ascii=False), flush=True)
+        return 1
+    try:
+        for line in sys.stdin:
+            if not line.strip():
+                continue
+            try:
+                target = json.loads(line)
+                x, y, name = int(target['x']), int(target['y']), str(target['name'])
+                if not (0 <= x <= 650 and 0 <= y <= 710):
+                    raise ValueError('Coordinates outside selectable map')
+                result = lookup(x, y, name)
+            except Exception as exc:
+                result = {'success': False, 'error': str(exc)}
+            print(json.dumps(result, ensure_ascii=False), flush=True)
+    finally:
+        session.close()
+    return 0
 
 def main():
     # JSON may contain Cyrillic/CJK names; Windows legacy console encodings
@@ -119,11 +158,16 @@ def main():
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='replace')
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--x',type=int,required=True)
-    parser.add_argument('--y',type=int,required=True)
-    parser.add_argument('--name',required=True)
+    parser.add_argument('--batch',action='store_true',help='Read JSON targets from stdin, one per line')
+    parser.add_argument('--x',type=int)
+    parser.add_argument('--y',type=int)
+    parser.add_argument('--name')
     parser.add_argument('--port',type=int,default=9222)
     args=parser.parse_args()
+    if args.batch:
+        return detect_batch(args.port)
+    if args.x is None or args.y is None or args.name is None:
+        parser.error('--x, --y and --name are required without --batch')
     if not (0<=args.x<=650 and 0<=args.y<=710):
         parser.error('Coordinates outside selectable map')
     try:

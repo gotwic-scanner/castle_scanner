@@ -1,3 +1,9 @@
+## v1.0.8.7 changes
+
+- Bulk Get Power reuses a single Chrome CDP session for the entire batch.
+- Power timings: 150 ms initialization, 50 ms castle settle, 2.5 s timeout, 50 ms water settle, 25 ms dismissal.
+- Existing single-castle lookup, exact player matching, persistence, and bulk skip-existing-power behavior retained.
+
 ## v1.0.8.6 changes
 
 - Added bulk Get Power for PROTECTED and UNPROTECTED castles from the latest completed scan; skips existing power values, runs sequentially, saves each result, and reports progress/failures.
