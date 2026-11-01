@@ -1,3 +1,9 @@
+## v1.0.8.6 changes
+
+- Added bulk Get Power for PROTECTED and UNPROTECTED castles from the latest completed scan; skips existing power values, runs sequentially, saves each result, and reports progress/failures.
+- Automatically checks MySQL connectivity on startup and selects SQL import if reachable; otherwise disables SQL import and continues in CSV-only mode.
+- Existing startup activation remains unchanged.
+
 ## v1.0.8.5 — WASM navigation, buffer and live player filter
 
 - Updated verified WASM 2.82.0_aff1eee501 navigation: table slot 63014, function 117459 (five arguments).

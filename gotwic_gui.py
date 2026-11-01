@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.4
+# GOTWiC Scanner GUI package release: 1.0.8.6
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -101,6 +101,11 @@ class MainWindow(QMainWindow):
         self.upload_last_csv = None
         self.power_proc = None
         self.power_target = None
+        self.bulk_power_queue = []
+        self.bulk_power_total = 0
+        self.bulk_power_done = 0
+        self.bulk_power_failed = 0
+        self.bulk_power_status = None
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
         self.build_scanner()
@@ -112,6 +117,33 @@ class MainWindow(QMainWindow):
         self.timer.start(150)
         self.cleanup_expired_csv()
         self.refresh_data()
+        self.check_sql_on_startup()
+
+    def check_sql_on_startup(self):
+        """Check actual database access without blocking the GUI startup."""
+        self.enable_sql.setChecked(False)
+        self.enable_sql.setEnabled(False)
+        self.enable_sql.setToolTip('Checking MySQL connection...')
+        def worker():
+            try:
+                import pymysql
+                conn = pymysql.connect(
+                    host=os.getenv('GOTWIC_DB_HOST', '127.0.0.1'),
+                    port=int(os.getenv('GOTWIC_DB_PORT', '3306')),
+                    user=os.getenv('GOTWIC_DB_USER', 'root'),
+                    password=os.getenv('GOTWIC_DB_PASSWORD', ''),
+                    database=os.getenv('GOTWIC_DB_NAME') or 'scanner_results',
+                    connect_timeout=3, read_timeout=3, write_timeout=3)
+                try:
+                    with conn.cursor() as cursor:
+                        cursor.execute('SELECT 1')
+                        cursor.fetchone()
+                finally:
+                    conn.close()
+                self.messages.put(('sql_check', (True, 'SQL connected — import enabled')))
+            except Exception as exc:
+                self.messages.put(('sql_check', (False, f'SQL unavailable — CSV only ({exc})')))
+        threading.Thread(target=worker, daemon=True).start()
 
     def build_scanner(self):
         tab = QWidget(); layout = QVBoxLayout(tab)
@@ -162,6 +194,14 @@ class MainWindow(QMainWindow):
         self.live_power_btn = QPushButton('Get Power for selected castle (including truced)')
         self.live_power_btn.clicked.connect(self.request_power_from_live)
         layout.addWidget(self.live_power_btn)
+        bulk_row = QHBoxLayout()
+        self.bulk_protected_btn = QPushButton('Get Power — PROTECTED (missing only)')
+        self.bulk_unprotected_btn = QPushButton('Get Power — UNPROTECTED (missing only)')
+        self.bulk_protected_btn.clicked.connect(lambda: self.start_bulk_power('PROTECTED'))
+        self.bulk_unprotected_btn.clicked.connect(lambda: self.start_bulk_power('UNPROTECTED'))
+        bulk_row.addWidget(self.bulk_protected_btn)
+        bulk_row.addWidget(self.bulk_unprotected_btn)
+        layout.addLayout(bulk_row)
         self.console = QTextEdit(); self.console.setReadOnly(True)
         self.console.setMaximumHeight(155)
         layout.addWidget(QLabel('Scanner messages'))
@@ -210,7 +250,7 @@ class MainWindow(QMainWindow):
         self.csv_retention_days.setSpecialValueText('0 — keep indefinitely')
         form.addRow('Auto CSV cleanup (days)', self.csv_retention_days)
         layout.addWidget(QLabel('0 = keep CSV files indefinitely; cleanup runs at startup and after scans.'))
-        layout.addWidget(QLabel('SQL import uses scanner database environment variables (GOTWIC_DB_*). Enable SQL import in Scan configuration.'))
+        layout.addWidget(QLabel('SQL connectivity is checked at startup using GOTWIC_DB_* settings; SQL import is enabled automatically when reachable.'))
         web_group = QGroupBox('Website CSV upload (optional)')
         web_form = QFormLayout(web_group)
         self.web_enabled = QCheckBox('Automatically upload CSV after scan')
@@ -441,7 +481,7 @@ class MainWindow(QMainWindow):
         self.summary.setText(f'Latest snapshot: {len(self.latest)} castles | Displayed: {len(filtered)} | Unprotected: {sum(r["status"]=="UNPROTECTED" for r in self.latest)}{snapshot_info}')
 
     def start_scan(self):
-        if self.proc is not None or self.power_proc is not None: return
+        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None: return
         if not SCANNER.exists():
             QMessageBox.critical(self,'Missing scanner',str(SCANNER)); return
         maskfile=BASE/'gotwic_kingdom542_production_mask.json'
@@ -511,6 +551,13 @@ class MainWindow(QMainWindow):
         for _ in range(300):
             try:kind,value=self.messages.get_nowait()
             except queue.Empty:break
+            if kind == 'sql_check':
+                reachable, message = value
+                self.enable_sql.setEnabled(reachable)
+                self.enable_sql.setChecked(reachable)
+                self.enable_sql.setToolTip(message)
+                self.console.append(message)
+                continue
             if kind=='upload_ok':
                 self.upload_running = False
                 self.web_retry.setEnabled(True)
@@ -592,7 +639,7 @@ class MainWindow(QMainWindow):
             self.request_power_from_live()
 
     def request_power_from_live(self):
-        if self.proc is not None or self.power_proc is not None:
+        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self, 'Busy', 'Finish the active scan or power lookup first.')
             return
         row = self.live_table.currentRow()
@@ -639,7 +686,7 @@ class MainWindow(QMainWindow):
             self.request_power()
 
     def request_power(self):
-        if self.proc is not None or self.power_proc is not None:
+        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self, 'Busy', 'Finish the active scan or power lookup first.')
             return
         row = self.castles_table.currentRow()
@@ -665,6 +712,76 @@ class MainWindow(QMainWindow):
                   'stamp':stamp,'csv':str(self.scans[0][0]),'sql':self.enable_sql.isChecked()}
         self.launch_power_lookup(target)
 
+    @staticmethod
+    def has_power(record):
+        """Power is persisted in status_source; zero/missing is not a known value."""
+        try:
+            return float(record.get('status_source') or 0) > 0
+        except (TypeError, ValueError):
+            return False
+
+    def start_bulk_power(self, status):
+        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
+            QMessageBox.warning(self, 'Busy', 'Finish the active scan or power lookup first.')
+            return
+        if not self.scans:
+            QMessageBox.information(self, 'No scan', 'No completed scan snapshot is available.')
+            return
+        snapshot, rows = self.scans[0]
+        if not snapshot.is_file():
+            QMessageBox.warning(self, 'Snapshot unavailable', 'The latest scan CSV is missing.')
+            return
+        eligible = [r for r in rows if str(r.get('status', '')).upper() == status
+                    and not self.has_power(r)]
+        targets = []
+        for r in eligible:
+            try:
+                x, y = int(r['x']), int(r['y'])
+                kingdom = int(r['kingdom'])
+                if not (0 <= x <= 650 and 0 <= y <= 710):
+                    raise ValueError('Out-of-range coordinates')
+                targets.append({'kingdom': kingdom, 'x': x, 'y': y,
+                    'name': str(r['name']), 'player_id': r.get('player_id', ''),
+                    'stamp': r['last_seen_utc'], 'csv': str(snapshot),
+                    'sql': self.enable_sql.isChecked()})
+            except (ValueError, KeyError, TypeError):
+                self.console.append(f"Bulk power: skipped invalid record {r.get('name', '?')}")
+        if not targets:
+            self.status.setText(f'Bulk {status}: no castles missing power in latest scan')
+            return
+        self.bulk_power_status = status
+        self.bulk_power_queue = targets
+        self.bulk_power_total = len(targets)
+        self.bulk_power_done = 0
+        self.bulk_power_failed = 0
+        self.bulk_protected_btn.setEnabled(False)
+        self.bulk_unprotected_btn.setEnabled(False)
+        self.console.append(f'Bulk {status}: checking {len(targets)} castles missing power from {snapshot.name}')
+        self.next_bulk_power()
+
+    def next_bulk_power(self):
+        if self.bulk_power_status is None:
+            return
+        if not self.bulk_power_queue:
+            status = self.bulk_power_status
+            self.bulk_power_status = None
+            self.bulk_protected_btn.setEnabled(True)
+            self.bulk_unprotected_btn.setEnabled(True)
+            message = (f'Bulk {status} complete: {self.bulk_power_done - self.bulk_power_failed} saved, '
+                       f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
+            self.console.append(message)
+            self.status.setText(message)
+            return
+        target = self.bulk_power_queue.pop(0)
+        self.status.setText(f'Bulk {self.bulk_power_status}: '
+                            f'{self.bulk_power_done + 1}/{self.bulk_power_total} — {target["name"]}')
+        self.launch_power_lookup(target)
+        if self.power_proc is None:
+            self.bulk_power_done += 1
+            self.bulk_power_failed += 1
+            self.console.append(f'Bulk power: failed to launch for {target["name"]}')
+            QTimer.singleShot(0, self.next_bulk_power)
+
     def launch_power_lookup(self, target):
         x, y, name = target['x'], target['y'], target['name']
         cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--x',str(x),'--y',str(y),
@@ -684,7 +801,10 @@ class MainWindow(QMainWindow):
             self.power_proc = None
             self.get_power_btn.setEnabled(True)
             self.live_power_btn.setEnabled(True)
-            QMessageBox.critical(self, 'Power lookup failed', str(exc))
+            if self.bulk_power_status is None:
+                QMessageBox.critical(self, 'Power lookup failed', str(exc))
+            else:
+                self.console.append(f'Bulk power launch failed: {exc}')
 
     def poll_power(self):
         if self.power_proc is None or self.power_proc.poll() is None:
@@ -710,21 +830,30 @@ class MainWindow(QMainWindow):
                     castle['power'] = f'{value:.3f}'
             self.refresh_live_table()
             self.status.setText(f"Power saved: {target['name']} — {value:.3f} M")
+            if self.bulk_power_status is not None:
+                self.console.append(f'Bulk power {self.bulk_power_done + 1}/{self.bulk_power_total}: {target["name"]} — {value:.3f} M')
         except Exception as exc:
             self.status.setText('Power lookup failed — snapshot unchanged')
-            QMessageBox.warning(self, 'Power lookup', str(exc))
+            if self.bulk_power_status is None:
+                QMessageBox.warning(self, 'Power lookup', str(exc))
+            else:
+                self.bulk_power_failed += 1
+                self.console.append(f'Bulk power failed ({self.bulk_power_done + 1}/{self.bulk_power_total}): {self.power_target["name"]} — {exc}')
         finally:
             self.power_target = None
+            if self.bulk_power_status is not None:
+                self.bulk_power_done += 1
+                QTimer.singleShot(0, self.next_bulk_power)
 
     def closeEvent(self,event):
-        if (self.proc is not None and self.proc.poll() is None) or self.power_proc is not None:
+        if (self.proc is not None and self.proc.poll() is None) or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self,'Scanner active','Finish or stop the scanner before closing the GUI.')
             event.ignore();return
         event.accept()
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.5'
+APP_VERSION = '1.0.8.6'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
