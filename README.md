@@ -1,3 +1,7 @@
+## v1.0.8.8 — Persistent Power Check Timing setting
+
+Settings > Power Check Timing offers Original (300/100/4000/100/50 ms), Recommended (150/50/2500/50/25 ms), and Aggressive (100/25/1500/25/10 ms) profiles for initialization, castle settling, response timeout, water settling, and dismissal. Recommended is the default; the selection persists via QSettings and applies to single, bulk and scan-time power checks. Bulk checks retain one persistent CDP connection.
+
 ## v1.0.8.7 changes
 
 - Bulk Get Power reuses a single Chrome CDP session for the entire batch.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.7
+# GOTWiC Scanner GUI package release: 1.0.8.8
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 from web_upload import upload_csv, UPLOAD_ENDPOINT
+from power_timing import PROFILES, DEFAULT_PROFILE
 
 from PySide6.QtCore import Qt, QTimer, QSettings
 from PySide6.QtGui import QColor, QBrush
@@ -247,6 +248,11 @@ class MainWindow(QMainWindow):
         delete_csv_btn = QPushButton('Delete all CSV files')
         delete_csv_btn.clicked.connect(self.delete_all_csv_files)
         layout.addWidget(delete_csv_btn)
+        self.power_timing_profile = QComboBox()
+        for key in PROFILES:
+            self.power_timing_profile.addItem(key.capitalize(), key)
+        form.addRow('Power Check Timing', self.power_timing_profile)
+        layout.addWidget(QLabel('Applies to individual, bulk and scan-time power lookups. Changes are saved automatically.'))
         self.csv_retention_days = QSpinBox()
         self.csv_retention_days.setRange(0, 36500)
         self.csv_retention_days.setSpecialValueText('0 — keep indefinitely')
@@ -264,6 +270,11 @@ class MainWindow(QMainWindow):
         web_form.addRow('Upload status', self.web_status)
         layout.addWidget(web_group)
         self.web_settings = QSettings('GOTWiC', 'Scanner')
+        saved_profile = str(self.web_settings.value('power_timing_profile', DEFAULT_PROFILE))
+        index = self.power_timing_profile.findData(saved_profile)
+        self.power_timing_profile.setCurrentIndex(index if index >= 0 else self.power_timing_profile.findData(DEFAULT_PROFILE))
+        self.power_timing_profile.currentIndexChanged.connect(
+            lambda _index: self.web_settings.setValue('power_timing_profile', self.power_timing_profile.currentData()))
         self.csv_retention_days.setValue(self.web_settings.value('csv_retention_days', 14, type=int))
         self.csv_retention_days.valueChanged.connect(lambda days: self.web_settings.setValue('csv_retention_days', days))
         self.web_enabled.setChecked(self.web_settings.value('web_enabled', False, type=bool))
@@ -494,7 +505,7 @@ class MainWindow(QMainWindow):
         cmd=[sys.executable,'-u',str(SCANNER),'--kingdom',str(self.kingdom.value()),
              '--mode',self.mode.currentText(),'--port',str(self.port.value()),
              '--show',self.show_filter.currentText(),'--buf',str(self.buffer.value()),'--report',str(report),
-             '--mask',str(maskfile)]
+             '--mask',str(maskfile),'--power-timing-profile',self.power_timing_profile.currentData()]
         if not self.enable_sql.isChecked():cmd+=['--no-db']
         # Player filtering is GUI display-only; never suppress scan data or console ingestion.
         if self.verbose_power.isChecked():cmd+=['--verbose']
@@ -763,7 +774,8 @@ class MainWindow(QMainWindow):
         self.launch_bulk_worker()
 
     def launch_bulk_worker(self):
-        cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--batch', '--port', str(self.port.value())]
+        cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--batch', '--port', str(self.port.value()),
+               '--power-timing-profile', self.power_timing_profile.currentData()]
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
         env['PYTHONUTF8'] = '1'
@@ -863,7 +875,8 @@ class MainWindow(QMainWindow):
     def launch_power_lookup(self, target):
         x, y, name = target['x'], target['y'], target['name']
         cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--x',str(x),'--y',str(y),
-               '--name',name,'--port',str(self.port.value())]
+               '--name',name,'--port',str(self.port.value()),
+               '--power-timing-profile',self.power_timing_profile.currentData()]
         self.get_power_btn.setEnabled(False)
         self.live_power_btn.setEnabled(False)
         self.status.setText(f'Looking up power for {name} at X={x}, Y={y}...')
@@ -935,7 +948,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.7'
+APP_VERSION = '1.0.8.8'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

@@ -8,10 +8,12 @@ import time
 import urllib.request
 import websocket
 from gotwic_scanner_v2_2 import (NAV, PREFLIGHT, decode_power_20007, POWER_TIMEOUT,
-    POWER_CASTLE_SETTLE, POWER_WATER_SETTLE, POWER_DISMISS_WAIT, POWER_WATER_MAP_ID)
+    POWER_WATER_MAP_ID)
+from power_timing import PROFILES, DEFAULT_PROFILE, timings
 
 
-def power_session(port):
+def power_session(port, profile=DEFAULT_PROFILE):
+    timing = timings(profile)
     with urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=5) as response:
         pages = json.load(response)
     page = next((p for p in pages if p.get('type') == 'page' and
@@ -70,7 +72,7 @@ def power_session(port):
     try:
         reply(send('Runtime.enable'))
         reply(send('Network.enable',{'maxTotalBufferSize':16000000}))
-        until=time.monotonic()+.15
+        until=time.monotonic()+timing['init']
         while time.monotonic()<until:
             poll()
         valid=[c for c in contexts if c.get('auxData',{}).get('isDefault') and
@@ -89,8 +91,8 @@ def power_session(port):
                 result=evaluate(NAV.replace('__MAPID__',str(y*720+x)),cid)
                 if not result or not result.get('ok'):
                     raise RuntimeError(f'Castle navigation failed: {result}')
-                time.sleep(POWER_CASTLE_SETTLE)
-                deadline=start+POWER_TIMEOUT
+                time.sleep(timing['castle'])
+                deadline=start+timing['timeout']
                 while time.monotonic()<deadline:
                     for seen, profile in profiles:
                         if (seen>=start and profile.get('player')==name and
@@ -99,15 +101,15 @@ def power_session(port):
                             return {'success':True,'x':x,'y':y,'player':name,'power':power,
                                     'power_millions':f'{power/1000000:.3f}'}
                     poll()
-                raise TimeoutError('No matching castle profile received within 2.5 seconds')
+                raise TimeoutError(f"No matching castle profile received within {timing['timeout']:g} seconds")
             finally:
                 try:
                     evaluate(NAV.replace('__MAPID__',str(POWER_WATER_MAP_ID)),cid)
-                    time.sleep(POWER_WATER_SETTLE)
+                    time.sleep(timing['water'])
                     for event,extra in [('mouseMoved',{}),('mousePressed',{'button':'left','clickCount':1}),
                                         ('mouseReleased',{'button':'left','clickCount':1})]:
                         reply(send('Input.dispatchMouseEvent',{'type':event,'x':px,'y':py,**extra}))
-                    time.sleep(POWER_DISMISS_WAIT)
+                    time.sleep(timing['dismiss'])
                 except Exception:
                     pass
 
@@ -117,8 +119,8 @@ def power_session(port):
 
 
 
-def detect(x, y, name, port):
-    session = power_session(port)
+def detect(x, y, name, port, profile=DEFAULT_PROFILE):
+    session = power_session(port, profile)
     lookup = next(session)
     try:
         return lookup(x, y, name)
@@ -126,10 +128,10 @@ def detect(x, y, name, port):
         session.close()
 
 
-def detect_batch(port):
+def detect_batch(port, profile=DEFAULT_PROFILE):
     """One CDP connection and execution context for the entire ordered batch."""
     try:
-        session = power_session(port)
+        session = power_session(port, profile)
         lookup = next(session)
     except Exception as exc:
         print(json.dumps({'fatal': str(exc)}, ensure_ascii=False), flush=True)
@@ -163,15 +165,16 @@ def main():
     parser.add_argument('--y',type=int)
     parser.add_argument('--name')
     parser.add_argument('--port',type=int,default=9222)
+    parser.add_argument('--power-timing-profile', choices=tuple(PROFILES), default=DEFAULT_PROFILE)
     args=parser.parse_args()
     if args.batch:
-        return detect_batch(args.port)
+        return detect_batch(args.port, args.power_timing_profile)
     if args.x is None or args.y is None or args.name is None:
         parser.error('--x, --y and --name are required without --batch')
     if not (0<=args.x<=650 and 0<=args.y<=710):
         parser.error('Coordinates outside selectable map')
     try:
-        result=detect(args.x,args.y,args.name,args.port)
+        result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile)
         print(json.dumps(result,ensure_ascii=False))
     except Exception as exc:
         print(json.dumps({'success':False,'error':str(exc)}))

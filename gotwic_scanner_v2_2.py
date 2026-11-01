@@ -85,6 +85,7 @@ return {ok:true,status:'returned',returnValue:String(v)}}
 catch(e){return {ok:false,error:String(e),stack:String(e.stack||'').slice(0,600)}}})()"""
 
 # v1.0.4: event-driven 20007 castle power, enabled only by -v / --verbose.
+from power_timing import PROFILES, DEFAULT_PROFILE, timings
 POWER_TIMEOUT = 2.5
 POWER_CASTLE_SETTLE = 0.05
 POWER_WATER_SETTLE = 0.05
@@ -224,8 +225,15 @@ def main():
     p.add_argument('--db-name',default=os.getenv('GOTWIC_DB_NAME') or 'scanner_results')
     p.add_argument('--mask',default='gotwic_kingdom542_production_mask.json',help='JSON list of allowed X/Y navigation points; use --mask none for unmasked scanning')
     p.add_argument('-v','--verbose',action='store_true',help='Retrieve power for UNPROTECTED castles only; protected/unknown stay 0')
+    p.add_argument('--power-timing-profile', choices=tuple(PROFILES), default=DEFAULT_PROFILE)
     p.add_argument('--no-db',action='store_true',help='Diagnostic scan without database import')
     a=p.parse_args()
+    global POWER_TIMEOUT, POWER_CASTLE_SETTLE, POWER_WATER_SETTLE, POWER_DISMISS_WAIT
+    selected_timing = timings(a.power_timing_profile)
+    POWER_TIMEOUT = selected_timing['timeout']
+    POWER_CASTLE_SETTLE = selected_timing['castle']
+    POWER_WATER_SETTLE = selected_timing['water']
+    POWER_DISMISS_WAIT = selected_timing['dismiss']
     if a.kingdom<1:p.error('--kingdom must be a positive integer')
     if not (0<=a.x_min<=a.x_max<=719 and 0<=a.y_min<=a.y_max<=719):p.error('Coordinate bounds must be within 0..719')
     if a.settle<0:p.error('--settle must be nonnegative')
@@ -387,7 +395,7 @@ def main():
         if a.verbose and rows:
             power_results['eligible']=sum(row[6]=='UNPROTECTED' and not row[4].startswith("Night'sWatch") for row in rows)
             power_results['skipped']=len(rows)-power_results['eligible']
-            print(f'Power lookup: {power_results["eligible"]} UNPROTECTED castles ({power_results["skipped"]} skipped) | v7 timing baseline',flush=True)
+            print(f'Power lookup: {power_results["eligible"]} UNPROTECTED castles ({power_results["skipped"]} skipped) | {a.power_timing_profile} timing profile',flush=True)
             viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
             dismiss_x=round(viewport['w']*.80);dismiss_y=round(viewport['h']*.75)
             def dismiss_click():
