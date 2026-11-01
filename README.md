@@ -1,3 +1,7 @@
+## v1.0.8.8 republished — unrestricted GUI startup
+
+Removed the one-time activation password prompt, activation-state check, and three-attempt lockout. The GUI starts without activation; old activation.json files are ignored. Version remains 1.0.8.8, so users already on this version must manually replace their files.
+
 ## v1.0.8.8 — Persistent Power Check Timing setting
 
 Settings > Power Check Timing offers Original (300/100/4000/100/50 ms), Recommended (150/50/2500/50/25 ms), and Aggressive (100/25/1500/25/10 ms) profiles for initialization, castle settling, response timeout, water settling, and dismissal. Recommended is the default; the selection persists via QSettings and applies to single, bulk and scan-time power checks. Bulk checks retain one persistent CDP connection.
@@ -12,7 +16,7 @@ Settings > Power Check Timing offers Original (300/100/4000/100/50 ms), Recommen
 
 - Added bulk Get Power for PROTECTED and UNPROTECTED castles from the latest completed scan; skips existing power values, runs sequentially, saves each result, and reports progress/failures.
 - Automatically checks MySQL connectivity on startup and selects SQL import if reachable; otherwise disables SQL import and continues in CSV-only mode.
-- Existing startup activation remains unchanged.
+- Startup activation was removed in the republished v1.0.8.8 release.
 
 ## v1.0.8.5 — WASM navigation, buffer and live player filter
 
@@ -30,11 +34,11 @@ Updated verified Unity WASM navigation from slot 62958 / function 145867 to slot
 
 ## v1.0.6.8 — mandatory detected updates
 
-When the GitHub version manifest announces a newer version, the update prompt is mandatory: declining the update exits the application. Download or staging failure after an update is detected also exits instead of launching the outdated GUI. If the version check itself fails before any newer version is confirmed, the installed GUI can still launch (offline availability). Activation state and lockout persist across updates.
+When the GitHub version manifest announces a newer version, the update prompt is mandatory: declining the update exits the application. Download or staging failure after an update is detected also exits instead of launching the outdated GUI. If the version check itself fails before any newer version is confirmed, the installed GUI can still launch (offline availability). The republished v1.0.8.8 release no longer performs activation checks.
 
-## v1.0.6.7 — one-time activation
+## v1.0.6.7 — historical one-time activation (removed in republished v1.0.8.8)
 
-On the first GUI launch, enter the activation password once. A successful entry is saved under `%LOCALAPPDATA%\GOTWiC-Scanner\activation.json` and future launches, including after updates, skip the password prompt. Three incorrect entries cause a persistent local lockout. Cancelling does not consume an attempt. The lockout is application-level and is not tamper-resistant against someone with filesystem access. Activation is checked before update checks and GUI startup.
+Previously, on the first GUI launch, users entered the activation password once. A successful entry is saved under `%LOCALAPPDATA%\GOTWiC-Scanner\activation.json` and future launches, including after updates, skip the password prompt. Three incorrect entries cause a persistent local lockout. Cancelling does not consume an attempt. The lockout is application-level and is not tamper-resistant against someone with filesystem access. This activation mechanism is no longer used.
 
 # GOTWiC Scanner GUI v1.0.6.6
 
@@ -240,7 +244,7 @@ Live results and Castle Explorer now sort Power (M), X and Y numerically using d
 
 
 ## v1.0.6.9: Automatic dependency bootstrap
-Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading the GUI, installs missing or incompatible packages using the same Python 3.13 interpreter, and verifies installation. If installation fails, startup stops with an error. The check repeats on subsequent launches, installing only when needed. An internet connection and pip are needed for missing packages. Existing mandatory updates and one-time activation remain in place.
+Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading the GUI, installs missing or incompatible packages using the same Python 3.13 interpreter, and verifies installation. If installation fails, startup stops with an error. The check repeats on subsequent launches, installing only when needed. An internet connection and pip are needed for missing packages. Existing mandatory updates remain in place; one-time activation has been removed.
 
 ## v1.0.8.2.1 website CSV upload
 

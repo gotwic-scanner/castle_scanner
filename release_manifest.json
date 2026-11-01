@@ -3,13 +3,13 @@
   "files": [
     {
       "path": "GUI_README.md",
-      "size": 15657,
-      "sha256": "1d9d8d8fe9c80e324d9345812be28765139afe78cb3ad513b2a062b09953bc04"
+      "size": 16082,
+      "sha256": "e07e72f2edcfdb5c158f04a6aee738de9e1c170f1401e99699671d936e40693e"
     },
     {
       "path": "README.md",
-      "size": 15657,
-      "sha256": "1d9d8d8fe9c80e324d9345812be28765139afe78cb3ad513b2a062b09953bc04"
+      "size": 16082,
+      "sha256": "e07e72f2edcfdb5c158f04a6aee738de9e1c170f1401e99699671d936e40693e"
     },
     {
       "path": "RUN_GUI.bat",
@@ -43,8 +43,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 60274,
-      "sha256": "7b765313655be02ef2bdda7fcf294cfc4467f1ea95933eed46a83eeb4200495e"
+      "size": 56681,
+      "sha256": "a575f747663d8a19ffa8e1dad156cc96926772b4cf98dcc7f73c47d2e0ab8421"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
