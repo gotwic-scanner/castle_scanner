@@ -1,3 +1,9 @@
+## v1.0.8.9 — Streamlined scanning and Castle Explorer history
+
+- Start Scan now automatically proceeds after game preflight; the second game-ready confirmation button is removed. Command-line scans without `--auto-start` still prompt normally.
+- Castle Explorer has Latest Scan (default) and All Saved Scans views. Historical observations remain distinct and existing filters apply to either view. Power lookup resolves the selected record to its own CSV snapshot.
+- Starting a new scan clears the Current Scan player-name search field; other filters are unchanged.
+
 ## v1.0.8.8 republished — unrestricted GUI startup
 
 Removed the one-time activation password prompt, activation-state check, and three-attempt lockout. The GUI starts without activation; old activation.json files are ignored. Version remains 1.0.8.8, so users already on this version must manually replace their files.

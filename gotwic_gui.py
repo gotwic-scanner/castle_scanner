@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.8
+# GOTWiC Scanner GUI package release: 1.0.8.9
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -174,9 +174,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(controls)
         buttons = QHBoxLayout()
         self.start_btn = QPushButton('Start scan'); self.start_btn.clicked.connect(self.start_scan)
-        self.ready_btn = QPushButton('Confirm game ready / Start scanning'); self.ready_btn.clicked.connect(self.confirm_ready); self.ready_btn.setEnabled(False)
         self.stop_btn = QPushButton('Finish manual scan / Stop'); self.stop_btn.clicked.connect(self.stop_scan); self.stop_btn.setEnabled(False)
-        buttons.addWidget(self.start_btn); buttons.addWidget(self.ready_btn); buttons.addWidget(self.stop_btn)
+        buttons.addWidget(self.start_btn); buttons.addWidget(self.stop_btn)
         layout.addLayout(buttons)
         self.status = QLabel('Idle — open Chrome with remote debugging and load the game map.')
         layout.addWidget(self.status)
@@ -215,6 +214,10 @@ class MainWindow(QMainWindow):
         tab = QWidget(); layout = QVBoxLayout(tab)
         bar = QHBoxLayout(); self.search = QLineEdit(); self.search.setPlaceholderText('Filter by player, ID, status or coordinate'); self.search.textChanged.connect(self.filter_castles)
         self.status_filter = QComboBox(); self.status_filter.addItems(['ALL','UNPROTECTED','PROTECTED','UNKNOWN']); self.status_filter.currentTextChanged.connect(self.filter_castles)
+        self.explorer_history = QComboBox()
+        self.explorer_history.addItems(['Latest Scan', 'All Saved Scans'])
+        self.explorer_history.currentIndexChanged.connect(self.filter_castles)
+        bar.addWidget(QLabel('Scan History')); bar.addWidget(self.explorer_history)
         bar.addWidget(self.search); bar.addWidget(self.status_filter); layout.addLayout(bar)
         self.summary = QLabel('No snapshots loaded'); layout.addWidget(self.summary)
         self.castles_table = self.make_table(['Castle', 'X', 'Y', 'Truce Status', 'Power (M)', 'last_seen_utc']); layout.addWidget(self.castles_table)
@@ -480,18 +483,30 @@ class MainWindow(QMainWindow):
         self.fill_table(self.scan_table,summary)
         self.fill_table(self.move_table,movements(self.scans))
 
+    def explorer_rows(self):
+        """Yield (snapshot path, record) pairs without collapsing historical observations."""
+        snapshots = self.scans if self.explorer_history.currentIndex() == 1 else self.scans[:1]
+        return [(path, record) for path, records in snapshots for record in records]
+
     def filter_castles(self,*_):
-        term=self.search.text().casefold().strip(); status=self.status_filter.currentText()
-        filtered=[r for r in self.latest if (status=='ALL' or r['status']==status) and (not term or any(term in str(v).casefold() for v in r.values()))]
-        self.fill_table(self.castles_table, [[r.get('name', ''), r.get('x', ''), r.get('y', ''), r.get('status', 'UNKNOWN'), r.get('status_source', 0), r.get('last_seen_utc', '')] for r in filtered],
-                        [str(r.get('status', 'UNKNOWN')).upper() for r in filtered])
-        snapshot_info = ''
-        if self.scans:
-            path, rows = self.scans[0]
-            kingdom = rows[0].get('kingdom', path.name.split('_')[0]) if rows else path.name.split('_')[0]
-            stamp = rows[0].get('last_seen_utc', 'unknown') if rows else 'unknown'
-            snapshot_info = f' | Kingdom: {kingdom} | Snapshot: {stamp}'
-        self.summary.setText(f'Latest snapshot: {len(self.latest)} castles | Displayed: {len(filtered)} | Unprotected: {sum(r["status"]=="UNPROTECTED" for r in self.latest)}{snapshot_info}')
+        term = self.search.text().casefold().strip()
+        status = self.status_filter.currentText()
+        source = self.explorer_rows()
+        filtered = [(path, r) for path, r in source
+                    if (status == 'ALL' or r['status'] == status)
+                    and (not term or any(term in str(v).casefold() for v in r.values()))]
+        self.explorer_visible = filtered
+        self.fill_table(self.castles_table,
+                        [[r.get('name', ''), r.get('x', ''), r.get('y', ''),
+                          r.get('status', 'UNKNOWN'), r.get('status_source', 0),
+                          r.get('last_seen_utc', '')] for _, r in filtered],
+                        [str(r.get('status', 'UNKNOWN')).upper() for _, r in filtered])
+        all_rows = [r for _, r in source]
+        mode = self.explorer_history.currentText()
+        self.summary.setText(
+            f'{mode}: {len(all_rows)} castle observations | Displayed: {len(filtered)} | '
+            f'Unprotected: {sum(r.get("status") == "UNPROTECTED" for r in all_rows)} | '
+            f'Snapshots: {len(self.scans) if self.explorer_history.currentIndex() == 1 else min(len(self.scans), 1)}')
 
     def start_scan(self):
         if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None: return
@@ -505,12 +520,13 @@ class MainWindow(QMainWindow):
         cmd=[sys.executable,'-u',str(SCANNER),'--kingdom',str(self.kingdom.value()),
              '--mode',self.mode.currentText(),'--port',str(self.port.value()),
              '--show',self.show_filter.currentText(),'--buf',str(self.buffer.value()),'--report',str(report),
-             '--mask',str(maskfile),'--power-timing-profile',self.power_timing_profile.currentData()]
+             '--mask',str(maskfile),'--auto-start','--power-timing-profile',self.power_timing_profile.currentData()]
         if not self.enable_sql.isChecked():cmd+=['--no-db']
         # Player filtering is GUI display-only; never suppress scan data or console ingestion.
         if self.verbose_power.isChecked():cmd+=['--verbose']
         self.pending_scan_csv = None
         self.active_scan_csv = None
+        self.player.clear()  # New scans always start without a player-name display filter.
         self.console.clear(); self.console.append('Starting scanner...')
         try:
             flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
@@ -524,9 +540,9 @@ class MainWindow(QMainWindow):
                  creationflags=flags,env=child_env)
         except OSError as exc:
             self.proc=None; QMessageBox.critical(self,'Launch failed',str(exc));return
-        self.report_path=report; self.ready_sent=False
-        self.start_btn.setEnabled(False);self.ready_btn.setEnabled(True);self.stop_btn.setEnabled(True)
-        self.status.setText('Scanner starting — wait for game-ready prompt.')
+        self.report_path=report; self.ready_sent=True
+        self.start_btn.setEnabled(False);self.stop_btn.setEnabled(True)
+        self.status.setText('Scanner starting — game-ready confirmation is automatic.')
         def read_output(proc):
             try:
                 for line in proc.stdout:self.messages.put(('line',line.rstrip()))
@@ -538,7 +554,7 @@ class MainWindow(QMainWindow):
         if self.proc and self.proc.poll() is None and not self.ready_sent:
             try:
                 self.proc.stdin.write('\n');self.proc.stdin.flush()
-                self.ready_sent=True;self.ready_btn.setEnabled(False)
+                self.ready_sent=True
                 self.status.setText('Scanning — '+self.mode.currentText())
             except (OSError,ValueError) as exc:self.console.append(f'Cannot confirm: {exc}')
 
@@ -613,10 +629,9 @@ class MainWindow(QMainWindow):
                     if clean_line.startswith('GOTWiC Scanner v2.2 |'):
                         clean_line = f'GOTWiC Scanner v{APP_VERSION} |' + clean_line.split('|', 1)[1]
                     self.console.append(clean_line)
-                if 'press Enter to start' in lowered:self.status.setText('Ready — verify Kingdom/map and click Confirm')
             else:
                 self.status.setText('Scan finished')
-                self.proc=None;self.start_btn.setEnabled(True);self.ready_btn.setEnabled(False);self.stop_btn.setEnabled(False)
+                self.proc=None;self.start_btn.setEnabled(True);self.stop_btn.setEnabled(False)
                 if self.pending_scan_csv is not None:
                     self.active_scan_csv = self.pending_scan_csv
                     if value == 0 and self.active_scan_csv.is_file():
@@ -715,15 +730,20 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Invalid castle', 'Selected castle has invalid coordinates.')
             return
         name, stamp = cell(0), cell(5)
-        matches = [r for r in self.latest if str(r.get('x')) == str(x) and str(r.get('y')) == str(y)
-                   and str(r.get('name', '')) == name and str(r.get('last_seen_utc')) == stamp]
+        # Sorting changes visible row indices; identify the original snapshot by
+        # the displayed record and its scan timestamp, not the latest CSV path.
+        matches = [(path, r) for path, r in self.explorer_rows()
+                   if str(r.get('x')) == str(x) and str(r.get('y')) == str(y)
+                   and str(r.get('name', '')) == name
+                   and str(r.get('last_seen_utc')) == stamp]
         if len(matches) != 1:
             QMessageBox.warning(self, 'Ambiguous selection', 'Could not uniquely identify selected snapshot row.')
             return
-        kingdom = int(matches[0]['kingdom'])
-        player_id = matches[0].get('player_id', '')
+        snapshot, record = matches[0]
+        kingdom = int(record['kingdom'])
+        player_id = record.get('player_id', '')
         target = {'kingdom':kingdom,'x':x,'y':y,'name':name,'player_id':player_id,
-                  'stamp':stamp,'csv':str(self.scans[0][0]),'sql':self.enable_sql.isChecked()}
+                  'stamp':stamp,'csv':str(snapshot),'sql':self.enable_sql.isChecked()}
         self.launch_power_lookup(target)
 
     @staticmethod
@@ -948,7 +968,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.8'
+APP_VERSION = '1.0.8.9'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

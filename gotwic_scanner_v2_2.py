@@ -211,6 +211,7 @@ def main():
     p.add_argument('--show',choices=('ALL','OPEN'),type=str.upper,default='ALL',help='Console: ALL castles (default), or OPEN for UNPROTECTED only')
     p.add_argument('--player',default=None,help='Console: show only player names containing this text (case-insensitive); does not filter database or report')
     p.add_argument('--mode',choices=('auto','manual'),default='auto')
+    p.add_argument('--auto-start',action='store_true',help='Start immediately after successful game preflight (GUI mode)')
     p.add_argument('--x-min',type=int,default=0);p.add_argument('--x-max',type=int,default=719)
     p.add_argument('--y-min',type=int,default=0);p.add_argument('--y-max',type=int,default=719)
     p.add_argument('--settle',type=float,default=3.0)
@@ -324,7 +325,10 @@ def main():
         pre=evaluate(PREFLIGHT,cid);report['preflight']=pre
         if not isinstance(pre,dict) or not pre.get('ok'):raise RuntimeError('Preflight failed: '+str(pre))
         print('GOTWiC Scanner v2.2 | Kingdom',a.kingdom,'| mode',a.mode,'| show',a.show,'| player',repr(a.player) if a.player else 'ALL',flush=True)
-        input('Verify Kingdom and map are open; press Enter to start: ')
+        if a.auto_start:
+            print('Game preflight passed — starting scan automatically.', flush=True)
+        else:
+            input('Verify Kingdom and map are open; press Enter to start: ')
         origin=time.monotonic();jumps=0
         if a.mode=='auto':
             xs=axis(a.x_min,a.x_max,25);ys=axis(a.y_min,a.y_max,13)
