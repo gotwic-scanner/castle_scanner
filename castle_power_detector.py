@@ -12,7 +12,7 @@ from gotwic_scanner_v2_2 import (NAV, PREFLIGHT, decode_power_20007, POWER_TIMEO
 from power_timing import PROFILES, DEFAULT_PROFILE, timings
 
 
-def power_session(port, profile=DEFAULT_PROFILE):
+def power_session(port, profile=DEFAULT_PROFILE, keep_open=False):
     timing = timings(profile)
     with urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=5) as response:
         pages = json.load(response)
@@ -103,15 +103,16 @@ def power_session(port, profile=DEFAULT_PROFILE):
                     poll()
                 raise TimeoutError(f"No matching castle profile received within {timing['timeout']:g} seconds")
             finally:
-                try:
-                    evaluate(NAV.replace('__MAPID__',str(POWER_WATER_MAP_ID)),cid)
-                    time.sleep(timing['water'])
-                    for event,extra in [('mouseMoved',{}),('mousePressed',{'button':'left','clickCount':1}),
-                                        ('mouseReleased',{'button':'left','clickCount':1})]:
-                        reply(send('Input.dispatchMouseEvent',{'type':event,'x':px,'y':py,**extra}))
-                    time.sleep(timing['dismiss'])
-                except Exception:
-                    pass
+                if not keep_open:
+                    try:
+                        evaluate(NAV.replace('__MAPID__',str(POWER_WATER_MAP_ID)),cid)
+                        time.sleep(timing['water'])
+                        for event,extra in [('mouseMoved',{}),('mousePressed',{'button':'left','clickCount':1}),
+                                            ('mouseReleased',{'button':'left','clickCount':1})]:
+                            reply(send('Input.dispatchMouseEvent',{'type':event,'x':px,'y':py,**extra}))
+                        time.sleep(timing['dismiss'])
+                    except Exception:
+                        pass
 
         yield lookup
     finally:
@@ -119,8 +120,8 @@ def power_session(port, profile=DEFAULT_PROFILE):
 
 
 
-def detect(x, y, name, port, profile=DEFAULT_PROFILE):
-    session = power_session(port, profile)
+def detect(x, y, name, port, profile=DEFAULT_PROFILE, keep_open=False):
+    session = power_session(port, profile, keep_open=keep_open)
     lookup = next(session)
     try:
         return lookup(x, y, name)
@@ -160,6 +161,7 @@ def main():
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='replace')
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--keep-open',action='store_true',help='Leave castle dialog open after single lookup')
     parser.add_argument('--batch',action='store_true',help='Read JSON targets from stdin, one per line')
     parser.add_argument('--x',type=int)
     parser.add_argument('--y',type=int)
@@ -174,7 +176,7 @@ def main():
     if not (0<=args.x<=650 and 0<=args.y<=710):
         parser.error('Coordinates outside selectable map')
     try:
-        result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile)
+        result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile,args.keep_open)
         print(json.dumps(result,ensure_ascii=False))
     except Exception as exc:
         print(json.dumps({'success':False,'error':str(exc)}))

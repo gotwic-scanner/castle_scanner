@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.8.9
+# GOTWiC Scanner GUI package release: 1.0.9.0
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -15,6 +15,7 @@ import sys
 import threading
 from web_upload import upload_csv, UPLOAD_ENDPOINT
 from power_timing import PROFILES, DEFAULT_PROFILE
+from csv_storage import CSV_DIR, migrate_root_csv
 
 from PySide6.QtCore import Qt, QTimer, QSettings
 from PySide6.QtGui import QColor, QBrush
@@ -30,7 +31,7 @@ COLUMNS = ['kingdom','x','y','map_id','name','player_id','status','status_source
 def read_snapshots(folder):
     scans = []
     for path in sorted(folder.glob('*.csv'), reverse=True):
-        if not re.match(r'^\d+_\d{8}_\d{6}_\d{6}\.csv$', path.name):
+        if not re.match(r'^\d+_\d{8}_\d{6}_\d{6}(?:_migrated_\d+)?\.csv$', path.name):
             continue
         try:
             with path.open(encoding='utf-8-sig', newline='') as f:
@@ -118,6 +119,11 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(150)
+        moved, errors = migrate_root_csv()
+        if moved:
+            self.console.append(f'CSV migration: moved {len(moved)} file(s) into {CSV_DIR}')
+        for error in errors:
+            self.console.append('CSV migration warning: ' + error)
         self.cleanup_expired_csv()
         self.refresh_data()
         self.check_sql_on_startup()
@@ -241,7 +247,7 @@ class MainWindow(QMainWindow):
         tab = QWidget(); layout = QVBoxLayout(tab)
         form = QFormLayout()
         self.port = QSpinBox(); self.port.setRange(1,65535); self.port.setValue(9222)
-        self.folder = QLineEdit(str(BASE)); self.folder.setReadOnly(True)
+        self.folder = QLineEdit(str(CSV_DIR)); self.folder.setReadOnly(True)
         choose = QPushButton('Choose CSV folder'); choose.clicked.connect(self.choose_folder)
         folder_row = QHBoxLayout(); folder_row.addWidget(self.folder); folder_row.addWidget(choose)
         form.addRow('Chrome debugging port',self.port); form.addRow('CSV snapshot folder',folder_row)
@@ -654,7 +660,7 @@ class MainWindow(QMainWindow):
 
     def request_power_at_live_row(self, row, column):
         self.live_table.selectRow(row)
-        self.request_power_from_live()
+        self.request_power_from_live(keep_open=True)
 
     def show_live_context_menu(self, position):
         item = self.live_table.itemAt(position)
@@ -667,7 +673,7 @@ class MainWindow(QMainWindow):
         if menu.exec(self.live_table.viewport().mapToGlobal(position)) == action:
             self.request_power_from_live()
 
-    def request_power_from_live(self):
+    def request_power_from_live(self, keep_open=False):
         if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self, 'Busy', 'Finish the active scan or power lookup first.')
             return
@@ -697,11 +703,11 @@ class MainWindow(QMainWindow):
                   'name':name, 'player_id':record.get('player_id',''),
                   'stamp':record['last_seen_utc'], 'csv':str(self.scans[0][0]),
                   'sql':self.enable_sql.isChecked()}
-        self.launch_power_lookup(target)
+        self.launch_power_lookup(target, keep_open=keep_open)
 
     def request_power_at_row(self, row, column):
         self.castles_table.selectRow(row)
-        self.request_power()
+        self.request_power(keep_open=True)
 
     def show_castle_context_menu(self, position):
         item = self.castles_table.itemAt(position)
@@ -714,7 +720,7 @@ class MainWindow(QMainWindow):
         if menu.exec(self.castles_table.viewport().mapToGlobal(position)) == action:
             self.request_power()
 
-    def request_power(self):
+    def request_power(self, keep_open=False):
         if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self, 'Busy', 'Finish the active scan or power lookup first.')
             return
@@ -744,7 +750,7 @@ class MainWindow(QMainWindow):
         player_id = record.get('player_id', '')
         target = {'kingdom':kingdom,'x':x,'y':y,'name':name,'player_id':player_id,
                   'stamp':stamp,'csv':str(snapshot),'sql':self.enable_sql.isChecked()}
-        self.launch_power_lookup(target)
+        self.launch_power_lookup(target, keep_open=keep_open)
 
     @staticmethod
     def has_power(record):
@@ -892,11 +898,13 @@ class MainWindow(QMainWindow):
             self.console.append(f'Bulk power: failed to launch for {target["name"]}')
             QTimer.singleShot(0, self.next_bulk_power)
 
-    def launch_power_lookup(self, target):
+    def launch_power_lookup(self, target, keep_open=False):
         x, y, name = target['x'], target['y'], target['name']
         cmd = [sys.executable, str(BASE/'castle_power_detector.py'), '--x',str(x),'--y',str(y),
                '--name',name,'--port',str(self.port.value()),
                '--power-timing-profile',self.power_timing_profile.currentData()]
+        if keep_open:
+            cmd.append('--keep-open')
         self.get_power_btn.setEnabled(False)
         self.live_power_btn.setEnabled(False)
         self.status.setText(f'Looking up power for {name} at X={x}, Y={y}...')
@@ -968,7 +976,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.8.9'
+APP_VERSION = '1.0.9.0'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

@@ -1,3 +1,10 @@
+# GOTWiC Scanner v1.0.9.0
+
+- CSV snapshots are now stored in the `csv/` subfolder. At GUI startup, root-level `*.csv` files are moved into that folder; name conflicts receive `_migrated_N` suffixes without overwriting either file.
+- Castle Explorer, history, CSV retention and deletion use the `csv/` directory by default.
+- Double-click a castle in Current Scan or Castle Explorer to retrieve its power while leaving the game at that castle with the information dialog open. The normal Get Power buttons and bulk lookups still return to water and dismiss the dialog.
+- Includes an original medieval heraldic launcher icon. Windows cannot assign a custom icon directly to `.bat` files; `RUN_GUI.bat` creates `GOTWiC Scanner.lnk` using `CREATE_SHORTCUT.ps1` on first launch. Use the shortcut for the icon.
+
 ## v1.0.8.9 — Streamlined scanning and Castle Explorer history
 
 - Start Scan now automatically proceeds after game preflight; the second game-ready confirmation button is removed. Command-line scans without `--auto-start` still prompt normally.

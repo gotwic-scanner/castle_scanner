@@ -157,14 +157,16 @@ CASTLE_COLUMNS = ('kingdom','x','y','map_id','name','player_id','status',
                   'status_source','last_status_utc','last_seen_utc','observations')
 
 def export_csv(rows, kingdom, stamp):
-    """Write the complete scan snapshot in the script directory, even with --no-db.
+    """Write the complete scan snapshot in the dedicated csv directory, even with --no-db.
 
     Use a UTC timestamp with microseconds so separate scans never overwrite each other.
     Empty nullable values import as SQL NULL when the import tool is configured to
     interpret empty fields as NULL.
     """
     filename = f'{kingdom}_{stamp.strftime("%Y%m%d_%H%M%S_%f")}.csv'
-    target = Path(__file__).resolve().parent / filename
+    from csv_storage import CSV_DIR
+    CSV_DIR.mkdir(parents=True, exist_ok=True)
+    target = CSV_DIR / filename
     temporary = target.with_suffix('.csv.tmp')
     try:
         with temporary.open('w', encoding='utf-8-sig', newline='') as output:
