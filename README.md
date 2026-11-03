@@ -1,3 +1,14 @@
+## v1.0.9.2
+- Batch kingdoms accepts comma-separated selections (2 or 3 unique kingdoms) in entered order, e.g. `550, 542, 547`.
+- Rejects malformed, duplicate, out-of-range, or more than three entries before scanning; ascending ranges and single kingdom selection remain supported.
+- Existing per-kingdom switching, saving, and incremental GUI updates remain unchanged.
+
+## v1.0.9.1
+- Switch to the selected kingdom once before each scan using the verified WASM kingdom selector.
+- Optional inclusive batch kingdom range (start - end), ascending and validated.
+- Save and display each kingdom after completion; retain completed kingdoms in the live table.
+- Stop cancels remaining kingdoms; failed kingdom aborts the batch.
+
 # GOTWiC Scanner v1.0.9.0
 
 - CSV snapshots are now stored in the `csv/` subfolder. At GUI startup, root-level `*.csv` files are moved into that folder; name conflicts receive `_migrated_N` suffixes without overwriting either file.

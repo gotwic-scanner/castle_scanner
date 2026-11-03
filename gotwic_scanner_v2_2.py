@@ -84,6 +84,16 @@ try{const v=f(__MAPID__,150,200,250,300);
 return {ok:true,status:'returned',returnValue:String(v)}}
 catch(e){return {ok:false,error:String(e),stack:String(e.stack||'').slice(0,600)}}})()"""
 
+# Experimentally verified kingdom selector (v4.08). The kingdom is an absolute
+# kingdom number, encoded as 2625310000 + kingdom in the WASM i64 argument.
+KINGDOM_SELECT="""(()=>{const t=window.gameInstance?.Module?.asm?.__indirect_function_table;
+if(!t)return {ok:false,error:'WASM table unavailable'};
+const f=t.get(63011);
+if(typeof f!=='function'||f.name!=='117486')return {ok:false,error:'Kingdom selector identity mismatch',name:f?.name};
+try{const v=f(BigInt(2625310000)+BigInt(__KINGDOM__),0,0,0,0,0);
+return {ok:true,returnValue:String(v)}}
+catch(e){return {ok:false,error:String(e)}}})()"""
+
 # v1.0.4: event-driven 20007 castle power, enabled only by -v / --verbose.
 from power_timing import PROFILES, DEFAULT_PROFILE, timings
 POWER_TIMEOUT = 2.5
@@ -209,7 +219,7 @@ def main():
         signal.signal(signal.SIGBREAK, lambda signum, frame: (_ for _ in ()).throw(KeyboardInterrupt()))
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',type=int,default=9222)
-    p.add_argument('--kingdom',type=int,required=True,help='Required Kingdom ID for database snapshots; does not switch game Kingdom')
+    p.add_argument('--kingdom',type=int,required=True,help='Kingdom to select in the game before scanning and to use for snapshots')
     p.add_argument('--show',choices=('ALL','OPEN'),type=str.upper,default='ALL',help='Console: ALL castles (default), or OPEN for UNPROTECTED only')
     p.add_argument('--player',default=None,help='Console: show only player names containing this text (case-insensitive); does not filter database or report')
     p.add_argument('--mode',choices=('auto','manual'),default='auto')
@@ -326,6 +336,13 @@ def main():
         cid=valid[0]['id'];report['context_id']=cid
         pre=evaluate(PREFLIGHT,cid);report['preflight']=pre
         if not isinstance(pre,dict) or not pre.get('ok'):raise RuntimeError('Preflight failed: '+str(pre))
+        selected=evaluate(KINGDOM_SELECT.replace('__KINGDOM__',str(a.kingdom)),cid)
+        report['kingdom_selection']=selected
+        if not isinstance(selected,dict) or not selected.get('ok'):
+            raise RuntimeError('Kingdom selection failed: '+str(selected))
+        print(f'Kingdom switch requested: {a.kingdom}',flush=True)
+        # Allow the game to process the kingdom transition before map requests.
+        collect(1.0)
         print('GOTWiC Scanner v2.2 | Kingdom',a.kingdom,'| mode',a.mode,'| show',a.show,'| player',repr(a.player) if a.player else 'ALL',flush=True)
         if a.auto_start:
             print('Game preflight passed — starting scan automatically.', flush=True)

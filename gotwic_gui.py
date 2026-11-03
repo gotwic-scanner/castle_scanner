@@ -70,6 +70,33 @@ def movements(scans):
             previous = current
     return list(reversed(found))
 
+
+def parse_kingdom_selection(value):
+    """Validate a single kingdom, inclusive ascending range, or 2–3 unique comma-separated kingdoms."""
+    value = value.strip()
+    if re.fullmatch(r'[0-9]+', value):
+        number = int(value)
+        if 1 <= number <= 999999:
+            return [number]
+        raise ValueError('Kingdom must be between 1 and 999999.')
+    if ',' in value:
+        parts = value.split(',')
+        if not 2 <= len(parts) <= 3 or any(not re.fullmatch(r'\s*[0-9]+\s*', p) for p in parts):
+            raise ValueError('Use 2 or 3 comma-separated kingdom numbers, e.g. 550, 542, 547.')
+        kingdoms = [int(p.strip()) for p in parts]
+        if any(not 1 <= k <= 999999 for k in kingdoms):
+            raise ValueError('Every kingdom must be between 1 and 999999.')
+        if len(set(kingdoms)) != len(kingdoms):
+            raise ValueError('Duplicate kingdoms are not allowed.')
+        return kingdoms
+    match = re.fullmatch(r'([0-9]+)\s*-\s*([0-9]+)', value)
+    if match:
+        first, last = map(int, match.groups())
+        if not (1 <= first < last <= 999999):
+            raise ValueError('Ending kingdom must be greater than starting kingdom (1..999999).')
+        return list(range(first, last + 1))
+    raise ValueError('Enter a single kingdom, an ascending range (542 - 550), or up to 3 comma-separated kingdoms.')
+
 class NumericItem(QTableWidgetItem):
     """Sort numeric table cells by value while displaying the original text."""
     def __lt__(self, other):
@@ -93,6 +120,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('GOTWiC Scanner — Desktop Manager')
         self.resize(1150, 780)
         self.proc = None
+        self.batch_kingdoms = []
+        self.batch_completed = 0
+        self.scan_config = None
+        self.current_scan_kingdom = None
         self.messages = queue.Queue()
         self.scans = []
         self.latest = []
@@ -158,6 +189,7 @@ class MainWindow(QMainWindow):
         tab = QWidget(); layout = QVBoxLayout(tab)
         controls = QGroupBox('Scan configuration'); form = QGridLayout(controls)
         self.kingdom = QSpinBox(); self.kingdom.setRange(1,999999); self.kingdom.setValue(542)
+        self.kingdom_range = QLineEdit(); self.kingdom_range.setPlaceholderText('e.g. 542 - 550 or 550, 542, 547 (max 3)')
         self.mode = QComboBox(); self.mode.addItems(['auto','manual'])
         self.show_filter = QComboBox(); self.show_filter.addItems(['ALL','OPEN'])
         self.player = QLineEdit(); self.player.setPlaceholderText('Filter current scan by player name'); self.player.textChanged.connect(self.refresh_live_table)
@@ -170,7 +202,8 @@ class MainWindow(QMainWindow):
         self.verbose_power = QCheckBox('Castle power (verbose) — slower scan')
         self.enable_sql = QCheckBox('Enable SQL import (omit --no-db)')
         form.addWidget(QLabel('Kingdom'),0,0); form.addWidget(self.kingdom,0,1)
-        form.addWidget(QLabel('Mode'),0,2); form.addWidget(self.mode,0,3)
+        form.addWidget(QLabel('Batch kingdoms'),0,2); form.addWidget(self.kingdom_range,0,3)
+        form.addWidget(QLabel('Mode'),0,4); form.addWidget(self.mode,0,5)
         form.addWidget(QLabel('Show'),1,0); form.addWidget(self.show_filter,1,1)
         form.addWidget(QLabel('Player'),1,2); form.addWidget(self.player,1,3)
         form.addWidget(QLabel('Buffer'),2,0); form.addWidget(self.buffer,2,1)
@@ -194,7 +227,7 @@ class MainWindow(QMainWindow):
         self.live_status_filter.currentTextChanged.connect(self.refresh_live_table)
         live_header.addWidget(self.live_status_filter)
         layout.addLayout(live_header)
-        self.live_table = self.make_table(['Castle', 'X', 'Y', 'Truce Status', 'Power (M)'])
+        self.live_table = self.make_table(['Kingdom', 'Castle', 'X', 'Y', 'Truce Status', 'Power (M)'])
         layout.addWidget(self.live_table, 3)
         self.live_table.cellDoubleClicked.connect(self.request_power_at_live_row)
         self.live_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -402,7 +435,7 @@ class MainWindow(QMainWindow):
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
                    and meets_minimum(r)
                    and (not player_term or player_term in str(r.get('name') or '').casefold())]
-        rows = [[r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
+        rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
 
@@ -515,46 +548,88 @@ class MainWindow(QMainWindow):
             f'Snapshots: {len(self.scans) if self.explorer_history.currentIndex() == 1 else min(len(self.scans), 1)}')
 
     def start_scan(self):
-        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None: return
+        if self.proc is not None or self.power_proc is not None or self.bulk_power_status is not None:
+            return
         if not SCANNER.exists():
-            QMessageBox.critical(self,'Missing scanner',str(SCANNER)); return
-        maskfile=BASE/'gotwic_kingdom542_production_mask.json'
-        if self.mode.currentText()=='auto' and not maskfile.exists():
-            QMessageBox.warning(self,'Missing mask',str(maskfile)); return
-        stamp=dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d_%H%M%S_%f')
-        report=BASE/f'gui_scan_{stamp}_report.json'
-        cmd=[sys.executable,'-u',str(SCANNER),'--kingdom',str(self.kingdom.value()),
-             '--mode',self.mode.currentText(),'--port',str(self.port.value()),
-             '--show',self.show_filter.currentText(),'--buf',str(self.buffer.value()),'--report',str(report),
-             '--mask',str(maskfile),'--auto-start','--power-timing-profile',self.power_timing_profile.currentData()]
-        if not self.enable_sql.isChecked():cmd+=['--no-db']
-        # Player filtering is GUI display-only; never suppress scan data or console ingestion.
-        if self.verbose_power.isChecked():cmd+=['--verbose']
+            QMessageBox.critical(self, 'Missing scanner', str(SCANNER)); return
+        maskfile = BASE / 'gotwic_kingdom542_production_mask.json'
+        if self.mode.currentText() == 'auto' and not maskfile.exists():
+            QMessageBox.warning(self, 'Missing mask', str(maskfile)); return
+        range_text = self.kingdom_range.text().strip()
+        if range_text:
+            try:
+                kingdoms = parse_kingdom_selection(range_text)
+            except ValueError as exc:
+                QMessageBox.warning(self, 'Invalid kingdom selection', str(exc)); return
+            if self.mode.currentText() != 'auto':
+                QMessageBox.warning(self, 'Batch mode', 'Multiple kingdom scanning requires automatic scan mode.'); return
+            self.batch_kingdoms = kingdoms
+        else:
+            self.batch_kingdoms = [self.kingdom.value()]
+        self.batch_completed = 0
+        self.scan_config = {
+            'mode': self.mode.currentText(), 'port': self.port.value(),
+            'show': self.show_filter.currentText(), 'buffer': self.buffer.value(),
+            'mask': str(maskfile), 'sql': self.enable_sql.isChecked(),
+            'verbose': self.verbose_power.isChecked(),
+            'timing': self.power_timing_profile.currentData()
+        }
         self.pending_scan_csv = None
         self.active_scan_csv = None
-        self.player.clear()  # New scans always start without a player-name display filter.
-        self.console.clear(); self.console.append('Starting scanner...')
+        self.player.clear()
+        self.console.clear()
+        self.live_results = []
+        self.refresh_live_table()
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self._start_next_kingdom()
+
+    def _start_next_kingdom(self):
+        if not self.batch_kingdoms:
+            self.scan_config = None
+            self.proc = None
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.status.setText(f'Scan finished — {self.batch_completed} kingdom(s) completed')
+            return
+        kingdom = self.batch_kingdoms.pop(0)
+        self.current_scan_kingdom = kingdom
+        stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d_%H%M%S_%f')
+        report = BASE / f'gui_scan_{stamp}_report.json'
+        cfg = self.scan_config
+        cmd = [sys.executable, '-u', str(SCANNER), '--kingdom', str(kingdom),
+               '--mode', cfg['mode'], '--port', str(cfg['port']), '--show', cfg['show'],
+               '--buf', str(cfg['buffer']), '--report', str(report), '--mask', cfg['mask'],
+               '--auto-start', '--power-timing-profile', cfg['timing']]
+        if not cfg['sql']: cmd.append('--no-db')
+        if cfg['verbose']: cmd.append('--verbose')
+        self.pending_scan_csv = None
+        self.console.append(f'Kingdom {kingdom}: selecting kingdom, then scanning...')
+        self.status.setText(f'Scanning kingdom {kingdom} — {len(self.batch_kingdoms)} remaining')
         try:
-            flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
-            child_env = os.environ.copy()
-            child_env['PYTHONIOENCODING'] = 'utf-8'
-            child_env['PYTHONUTF8'] = '1'
-            self.live_results = []
-            self.refresh_live_table()
-            self.proc=subprocess.Popen(cmd,cwd=str(BASE),stdin=subprocess.PIPE,stdout=subprocess.PIPE,
-                 stderr=subprocess.STDOUT,bufsize=1,text=True,encoding='utf-8',errors='replace',
-                 creationflags=flags,env=child_env)
+            flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+            env['PYTHONUTF8'] = '1'
+            self.proc = subprocess.Popen(cmd, cwd=str(BASE), stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, text=True,
+                encoding='utf-8', errors='replace', creationflags=flags, env=env)
         except OSError as exc:
-            self.proc=None; QMessageBox.critical(self,'Launch failed',str(exc));return
-        self.report_path=report; self.ready_sent=True
-        self.start_btn.setEnabled(False);self.stop_btn.setEnabled(True)
-        self.status.setText('Scanner starting — game-ready confirmation is automatic.')
+            self.batch_kingdoms = []
+            self.proc = None
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            QMessageBox.critical(self, 'Launch failed', str(exc))
+            return
+        self.report_path = report
+        self.ready_sent = True
         def read_output(proc):
             try:
-                for line in proc.stdout:self.messages.put(('line',line.rstrip()))
+                for line in proc.stdout:
+                    self.messages.put(('line', line.rstrip()))
             finally:
-                self.messages.put(('exit',proc.wait()))
-        threading.Thread(target=read_output,args=(self.proc,),daemon=True).start()
+                self.messages.put(('exit', proc.wait()))
+        threading.Thread(target=read_output, args=(self.proc,), daemon=True).start()
 
     def confirm_ready(self):
         if self.proc and self.proc.poll() is None and not self.ready_sent:
@@ -579,6 +654,7 @@ class MainWindow(QMainWindow):
             if os.name=='nt':self.proc.send_signal(signal.CTRL_BREAK_EVENT)
             else:self.proc.send_signal(signal.SIGINT)
         except (OSError,ValueError) as exc:self.console.append(f'Stop failed: {exc}')
+        self.batch_kingdoms = []  # Stop also cancels all remaining kingdoms.
         self.stop_btn.setEnabled(False)
 
     def tick(self):
@@ -615,7 +691,7 @@ class MainWindow(QMainWindow):
                 if castle_match:
                     name, x, y, status = castle_match.groups()
                     status = status.upper()
-                    self.live_results.append({'name': name.strip(), 'x': int(x), 'y': int(y), 'status': status})
+                    self.live_results.append({'kingdom': self.current_scan_kingdom, 'name': name.strip(), 'x': int(x), 'y': int(y), 'status': status})
                     self.refresh_live_table()
                     continue
                 lowered = clean_line.casefold()
@@ -636,27 +712,42 @@ class MainWindow(QMainWindow):
                         clean_line = f'GOTWiC Scanner v{APP_VERSION} |' + clean_line.split('|', 1)[1]
                     self.console.append(clean_line)
             else:
-                self.status.setText('Scan finished')
-                self.proc=None;self.start_btn.setEnabled(True);self.stop_btn.setEnabled(False)
-                if self.pending_scan_csv is not None:
-                    self.active_scan_csv = self.pending_scan_csv
-                    if value == 0 and self.active_scan_csv.is_file():
-                        self.start_web_upload(self.active_scan_csv)
-                self.cleanup_expired_csv()
-                self.refresh_data()
-                if self.pending_scan_csv is None:
-                    self.status.setText('Scan finished — no CSV path reported; manual power lookup unavailable')
-                elif not self.scans or self.scans[0][0] != self.active_scan_csv:
-                    self.status.setText('Scan finished — latest CSV could not be loaded')
+                self.proc = None
+                completed_csv = self.pending_scan_csv
+                successful = value == 0
+                report = None
                 if self.report_path.exists():
                     try:
-                        report=json.loads(self.report_path.read_text(encoding='utf-8'))
-                        lookup={(str(c.get('name')),int(c.get('x')),int(c.get('y'))):c.get('power_millions',0) for c in report.get('castles',[])}
-                        for castle in self.live_results:
-                            castle['power']=lookup.get((castle['name'],castle['x'],castle['y']),0)
-                        self.refresh_live_table()
-                        # Scanner report errors are intentionally not echoed into the GUI.
-                    except (OSError,ValueError):pass
+                        report = json.loads(self.report_path.read_text(encoding='utf-8'))
+                        successful = successful and not report.get('errors') and (report.get('csv_export') or {}).get('status') == 'success'
+                    except (OSError, ValueError) as exc:
+                        successful = False
+                        self.console.append(f'Could not load kingdom report: {exc}')
+                else:
+                    successful = False
+                if successful and completed_csv is not None and completed_csv.is_file():
+                    self.active_scan_csv = completed_csv
+                    self.batch_completed += 1
+                    self.start_web_upload(completed_csv)
+                    self.cleanup_expired_csv()
+                    self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
+                    lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
+                              for c in report.get('castles', [])}
+                    for castle in self.live_results:
+                        if castle.get('kingdom') == self.current_scan_kingdom:
+                            castle['power'] = lookup.get((castle['name'], castle['x'], castle['y']), 0)
+                    self.refresh_live_table()
+                    self.console.append(f'Kingdom {self.current_scan_kingdom} complete — {len(self.batch_kingdoms)} remaining')
+                    if self.batch_kingdoms:
+                        self._start_next_kingdom()
+                        continue
+                else:
+                    self.console.append(f'Kingdom {self.current_scan_kingdom} did not complete successfully; batch stopped.')
+                    self.batch_kingdoms = []
+                self.scan_config = None
+                self.start_btn.setEnabled(True)
+                self.stop_btn.setEnabled(False)
+                self.status.setText(f'Scan finished — {self.batch_completed} kingdom(s) completed')
 
     def request_power_at_live_row(self, row, column):
         self.live_table.selectRow(row)
@@ -682,18 +773,20 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, 'Select castle', 'Select a castle in Live castle results first.')
             return
         try:
-            name = self.live_table.item(row, 0).text()
-            x = int(float(self.live_table.item(row, 1).text()))
-            y = int(float(self.live_table.item(row, 2).text()))
+            kingdom = int(self.live_table.item(row, 0).text())
+            name = self.live_table.item(row, 1).text()
+            x = int(float(self.live_table.item(row, 2).text()))
+            y = int(float(self.live_table.item(row, 3).text()))
         except (AttributeError, ValueError, TypeError):
             QMessageBox.warning(self, 'Invalid castle', 'Selected castle has invalid coordinates.')
             return
         # The live table has no player ID or snapshot ID. Resolve against the
         # latest persisted snapshot and reject missing/ambiguous matches.
-        matches = [r for r in self.latest if r.get('name') == name
+        snapshot = next(((path, rows) for path, rows in self.scans if rows and str(rows[0].get('kingdom')) == str(kingdom)), None)
+        matches = [r for r in (snapshot[1] if snapshot else []) if r.get('name') == name
                    and str(r.get('x')) == str(x) and str(r.get('y')) == str(y)
-                   and str(r.get('kingdom')) == str(self.kingdom.value())]
-        if len(matches) != 1 or not self.scans or self.active_scan_csv is None or self.scans[0][0] != self.active_scan_csv:
+                   and str(r.get('kingdom')) == str(kingdom)]
+        if len(matches) != 1 or snapshot is None:
             QMessageBox.warning(self, 'Snapshot unavailable',
                 'Could not uniquely match this castle to the latest saved scan. '
                 'Finish the scan and reload its snapshot before requesting power.')
@@ -701,7 +794,7 @@ class MainWindow(QMainWindow):
         record = matches[0]
         target = {'kingdom':int(record['kingdom']), 'x':x, 'y':y,
                   'name':name, 'player_id':record.get('player_id',''),
-                  'stamp':record['last_seen_utc'], 'csv':str(self.scans[0][0]),
+                  'stamp':record['last_seen_utc'], 'csv':str(snapshot[0]),
                   'sql':self.enable_sql.isChecked()}
         self.launch_power_lookup(target, keep_open=keep_open)
 
@@ -976,7 +1069,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.0'
+APP_VERSION = '1.0.9.2'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
