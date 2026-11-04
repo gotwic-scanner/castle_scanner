@@ -1,3 +1,8 @@
+## v1.0.9.5 changes
+
+- Scan Statistics now displays each scanned kingdom separately with Untruced, Truced and Total counts, plus an overall TOTAL row. Night'sWatch exclusions still apply.
+- SQL import and website upload are temporarily disabled (no startup SQL probe or automatic transfers); CSV saving and retention continue normally.
+
 ## v1.0.9.4
 - Exclude castles with names starting with `Night'sWatch` from the Current Scan list and numeric scan statistics, matching the existing power-check exemption. CSV and SQL records remain unchanged.
 - Omit `WASM_RECOVERY_GUIDELINE.md` from the distributed application and release manifests.

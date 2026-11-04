@@ -157,7 +157,9 @@ class MainWindow(QMainWindow):
             self.console.append('CSV migration warning: ' + error)
         self.cleanup_expired_csv()
         self.refresh_data()
-        self.check_sql_on_startup()
+        # SQL is temporarily disabled; do not probe the database at startup.
+        self.enable_sql.setChecked(False)
+        self.enable_sql.setEnabled(False)
 
     def check_sql_on_startup(self):
         """Check actual database access without blocking the GUI startup."""
@@ -200,7 +202,10 @@ class MainWindow(QMainWindow):
         self.minimum_power.currentIndexChanged.connect(self.refresh_live_table)
         self.buffer = QSpinBox(); self.buffer.setRange(1,32); self.buffer.setValue(24)
         self.verbose_power = QCheckBox('Castle power (verbose) — slower scan')
-        self.enable_sql = QCheckBox('Enable SQL import (omit --no-db)')
+        self.enable_sql = QCheckBox('SQL import (temporarily disabled)')
+        self.enable_sql.setChecked(False)
+        self.enable_sql.setEnabled(False)
+        self.enable_sql.setToolTip('SQL import is disabled in v1.0.9.5')
         form.addWidget(QLabel('Kingdom'),0,0); form.addWidget(self.kingdom,0,1)
         form.addWidget(QLabel('Batch kingdoms'),0,2); form.addWidget(self.kingdom_range,0,3)
         form.addWidget(QLabel('Mode'),0,4); form.addWidget(self.mode,0,5)
@@ -239,22 +244,16 @@ class MainWindow(QMainWindow):
         results_row = QHBoxLayout()
         results_row.addWidget(self.live_table, 1)
         stats_box = QGroupBox('Scan Statistics')
-        stats_box.setFixedWidth(180)
+        stats_box.setMinimumWidth(315)
         stats_layout = QVBoxLayout(stats_box)
-        self.stat_untruced = QLabel('0')
-        self.stat_truced = QLabel('0')
-        self.stat_total = QLabel('0')
-        for title, counter, color in (
-            ('Untruced', self.stat_untruced, '#78e08f'),
-            ('Truced', self.stat_truced, '#ff8e8e'),
-            ('Total castles', self.stat_total, None)):
-            heading = QLabel(title)
-            stats_layout.addWidget(heading)
-            counter.setAlignment(Qt.AlignmentFlag.AlignRight)
-            counter.setStyleSheet('font-size: 23px; font-weight: bold;' + (f'color: {color};' if color else ''))
-            stats_layout.addWidget(counter)
-            stats_layout.addSpacing(12)
-        stats_layout.addStretch()
+        self.stats_table = QTableWidget(0, 4)
+        self.stats_table.setHorizontalHeaderLabels(['Kingdom', 'Untruced', 'Truced', 'Total'])
+        self.stats_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.stats_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.stats_table.verticalHeader().setVisible(False)
+        self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.stats_table.setAlternatingRowColors(True)
+        stats_layout.addWidget(self.stats_table)
         results_row.addWidget(stats_box)
         layout.addLayout(results_row, 3)
         self.live_table.cellDoubleClicked.connect(self.request_power_at_live_row)
@@ -328,13 +327,13 @@ class MainWindow(QMainWindow):
         self.csv_retention_days.setSpecialValueText('0 — keep indefinitely')
         form.addRow('Auto CSV cleanup (days)', self.csv_retention_days)
         layout.addWidget(QLabel('0 = keep CSV files indefinitely; cleanup runs at startup and after scans.'))
-        layout.addWidget(QLabel('SQL connectivity is checked at startup using GOTWIC_DB_* settings; SQL import is enabled automatically when reachable.'))
+        layout.addWidget(QLabel('SQL import is temporarily disabled; CSV storage remains active.'))
         web_group = QGroupBox('Website CSV upload (optional)')
         web_form = QFormLayout(web_group)
-        self.web_enabled = QCheckBox('Automatically upload CSV after scan')
+        self.web_enabled = QCheckBox('Automatically upload CSV after scan (temporarily disabled)')
         self.web_retry = QPushButton('Upload / retry latest CSV')
         self.web_retry.clicked.connect(self.retry_web_upload)
-        self.web_status = QLabel('Web upload not configured')
+        self.web_status = QLabel('Web upload temporarily disabled')
         web_form.addRow(self.web_enabled)
         web_form.addRow(self.web_retry)
         web_form.addRow('Upload status', self.web_status)
@@ -347,8 +346,10 @@ class MainWindow(QMainWindow):
             lambda _index: self.web_settings.setValue('power_timing_profile', self.power_timing_profile.currentData()))
         self.csv_retention_days.setValue(self.web_settings.value('csv_retention_days', 14, type=int))
         self.csv_retention_days.valueChanged.connect(lambda days: self.web_settings.setValue('csv_retention_days', days))
-        self.web_enabled.setChecked(self.web_settings.value('web_enabled', False, type=bool))
-        self.web_enabled.toggled.connect(self.save_web_settings)
+        self.web_enabled.setChecked(False)
+        self.web_enabled.setEnabled(False)
+        self.web_retry.setEnabled(False)
+        self.web_retry.setToolTip('Web upload is disabled in v1.0.9.5')
 
         layout.addStretch()
         self.tabs.addTab(tab,'Settings')
@@ -357,6 +358,7 @@ class MainWindow(QMainWindow):
         self.web_settings.setValue('web_enabled', self.web_enabled.isChecked())
 
     def retry_web_upload(self):
+        return  # Web upload temporarily disabled.
         path = self.active_scan_csv or self.upload_last_csv
         if path is None:
             self.web_status.setText('No completed CSV available')
@@ -364,6 +366,7 @@ class MainWindow(QMainWindow):
         self.start_web_upload(path, manual=True)
 
     def start_web_upload(self, path, manual=False):
+        return  # Web upload temporarily disabled.
         if self.upload_running:
             self.web_status.setText('Upload already in progress')
             return
@@ -470,12 +473,37 @@ class MainWindow(QMainWindow):
         rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
-        # Count eligible castles only, independent of display/search/power filters.
-        untruced = sum(str(r.get('status', '')).upper() == 'UNPROTECTED' for r in eligible)
-        truced = sum(str(r.get('status', '')).upper() == 'PROTECTED' for r in eligible)
-        self.stat_untruced.setText(f'{untruced:,}')
-        self.stat_truced.setText(f'{truced:,}')
-        self.stat_total.setText(f'{len(eligible):,}')
+        # Statistics reflect all eligible observations, independent of table filters.
+        # Each kingdom gets its own row; the final row aggregates the entire batch.
+        grouped = {}
+        for record in eligible:
+            kingdom = str(record.get('kingdom', '')).strip() or '?'
+            counts = grouped.setdefault(kingdom, [0, 0, 0])
+            status = str(record.get('status', '')).upper()
+            if status == 'UNPROTECTED':
+                counts[0] += 1
+            elif status == 'PROTECTED':
+                counts[1] += 1
+            counts[2] += 1  # UNKNOWN castles still contribute to total.
+        ordered = sorted(grouped, key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else k))
+        totals = [sum(grouped[k][i] for k in ordered) for i in range(3)]
+        self.stats_table.setRowCount(len(ordered) + 1)
+        for row, kingdom in enumerate(ordered + ['TOTAL']):
+            values = grouped[kingdom] if kingdom != 'TOTAL' else totals
+            for col, value in enumerate([kingdom, *values]):
+                item = QTableWidgetItem(str(value) if col == 0 else f'{value:,}')
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | (Qt.AlignmentFlag.AlignLeft if col == 0 else Qt.AlignmentFlag.AlignRight))
+                if col == 1:
+                    item.setForeground(QBrush(QColor('#78e08f')))
+                elif col == 2:
+                    item.setForeground(QBrush(QColor('#ff8e8e')))
+                if kingdom == 'TOTAL':
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+                self.stats_table.setItem(row, col, item)
+        self.stats_table.resizeRowsToContents()
 
     def choose_folder(self):
         folder=QFileDialog.getExistingDirectory(self,'CSV folder',self.folder.text())
@@ -608,7 +636,7 @@ class MainWindow(QMainWindow):
         self.scan_config = {
             'mode': self.mode.currentText(), 'port': self.port.value(),
             'show': self.show_filter.currentText(), 'buffer': self.buffer.value(),
-            'mask': str(maskfile), 'sql': self.enable_sql.isChecked(),
+            'mask': str(maskfile), 'sql': False,
             'verbose': self.verbose_power.isChecked(),
             'timing': self.power_timing_profile.currentData()
         }
@@ -702,12 +730,7 @@ class MainWindow(QMainWindow):
             try:kind,value=self.messages.get_nowait()
             except queue.Empty:break
             if kind == 'sql_check':
-                reachable, message = value
-                self.enable_sql.setEnabled(reachable)
-                self.enable_sql.setChecked(reachable)
-                self.enable_sql.setToolTip(message)
-                self.console.append(message)
-                continue
+                continue  # SQL is disabled.
             if kind=='upload_ok':
                 self.upload_running = False
                 self.web_retry.setEnabled(True)
@@ -766,7 +789,6 @@ class MainWindow(QMainWindow):
                 if successful and completed_csv is not None and completed_csv.is_file():
                     self.active_scan_csv = completed_csv
                     self.batch_completed += 1
-                    self.start_web_upload(completed_csv)
                     self.cleanup_expired_csv()
                     self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
                     lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
@@ -833,7 +855,7 @@ class MainWindow(QMainWindow):
         target = {'kingdom':int(record['kingdom']), 'x':x, 'y':y,
                   'name':name, 'player_id':record.get('player_id',''),
                   'stamp':record['last_seen_utc'], 'csv':str(snapshot[0]),
-                  'sql':self.enable_sql.isChecked()}
+                  'sql':False}
         self.launch_power_lookup(target, keep_open=keep_open)
 
     def request_power_at_row(self, row, column):
@@ -880,7 +902,7 @@ class MainWindow(QMainWindow):
         kingdom = int(record['kingdom'])
         player_id = record.get('player_id', '')
         target = {'kingdom':kingdom,'x':x,'y':y,'name':name,'player_id':player_id,
-                  'stamp':stamp,'csv':str(snapshot),'sql':self.enable_sql.isChecked()}
+                  'stamp':stamp,'csv':str(snapshot),'sql':False}
         self.launch_power_lookup(target, keep_open=keep_open)
 
     @staticmethod
@@ -914,7 +936,7 @@ class MainWindow(QMainWindow):
                 targets.append({'kingdom': kingdom, 'x': x, 'y': y,
                     'name': str(r['name']), 'player_id': r.get('player_id', ''),
                     'stamp': r['last_seen_utc'], 'csv': str(snapshot),
-                    'sql': self.enable_sql.isChecked()})
+                    'sql': False})
             except (ValueError, KeyError, TypeError):
                 self.console.append(f"Bulk power: skipped invalid record {r.get('name', '?')}")
         if not targets:
@@ -1107,7 +1129,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.4'
+APP_VERSION = '1.0.9.5'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
