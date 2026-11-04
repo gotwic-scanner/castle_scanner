@@ -56,6 +56,8 @@ class ColorTracker(LiveTracker):
                 if old is not None and old[0] == status and old[1] == item.get('map_id'):
                     continue
                 mid = item.get('map_id')
+                if not isinstance(mid, int) or ignored_castle(item.get('name'), mid % 720, mid // 720):
+                    continue
                 coords = f"X={mid%720} Y={mid//720}" if mid is not None else 'X=? Y=?'
                 self.say(f"{item.get('name') or '?'} {coords}: {status}")
         return changed
@@ -151,6 +153,13 @@ def parse_utc(value):
         parsed=dt.datetime.fromisoformat(str(value).strip().replace('Z','+00:00'))
         return parsed.astimezone(dt.timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
     except (ValueError,TypeError): return None
+
+def ignored_castle(name, x, y):
+    """Shared power/display exemption; keep ignored records in scan exports."""
+    try:
+        return str(name or '').casefold().startswith("night'swatch") or int(x) < 5 or int(y) < 5
+    except (ValueError, TypeError):
+        return True
 
 def snapshot_rows(tracker,kingdom,stamp):
     rows=[]
@@ -416,7 +425,7 @@ def main():
         power_results={'enabled':a.verbose,'eligible':0,'skipped':0,'attempted':0,'matched':0,'unavailable':0,
                        'timeout_seconds':POWER_TIMEOUT,'errors':[]}
         if a.verbose and rows:
-            power_results['eligible']=sum(row[6]=='UNPROTECTED' and not row[4].startswith("Night'sWatch") for row in rows)
+            power_results['eligible']=sum(row[6]=='UNPROTECTED' and not ignored_castle(row[4], row[1], row[2]) for row in rows)
             power_results['skipped']=len(rows)-power_results['eligible']
             print(f'Power lookup: {power_results["eligible"]} UNPROTECTED castles ({power_results["skipped"]} skipped) | {a.power_timing_profile} timing profile',flush=True)
             viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
@@ -429,11 +438,12 @@ def main():
             powered=[]
             for index,row in enumerate(rows):
                 name=row[4]; mid=row[3]; power=0
-                if row[6]!='UNPROTECTED' or name.startswith("Night'sWatch"):
+                if row[6]!='UNPROTECTED' or ignored_castle(name, row[1], row[2]):
                     powered.append(row)
                     continue
                 power_results['attempted']+=1
                 active['power_visit']=index
+                active['power_profiles'].clear()  # Drop previous castle profiles.
                 try:
                     if not name:
                         raise ValueError('castle has no player name for exact matching')
@@ -478,6 +488,7 @@ def main():
                     print(f'  Power: {power_results["attempted"]}/{power_results["eligible"]} eligible | matched {power_results["matched"]}',flush=True)
             rows=powered
             active['power_visit']=None
+            active['power_profiles'].clear()
         report['power_lookup']=power_results
         report['castles']=[{'x':r[1],'y':r[2],'map_id':r[3],'name':r[4],'player_id':r[5],
                             'status':r[6],'power_millions':r[7],'observations':r[10]} for r in rows]
@@ -502,7 +513,31 @@ def main():
         report['errors'].append(f'{type(e).__name__}: {e}')
         print('STOP:',type(e).__name__,e,flush=True)
     finally:
-        ws.close()
+        # Best-effort cleanup after each kingdom, including the last one.
+        # Do not clear cookies, reload the tab or invalidate the logged-in session.
+        try:
+            active['power_profiles'].clear()
+            contexts.clear()
+            replies.clear()
+            tracker.items.clear()
+            for method, params in (
+                ('Network.disable', {}),
+                ('Runtime.disable', {}),
+                ('HeapProfiler.enable', {}),
+                ('HeapProfiler.collectGarbage', {}),
+                ('HeapProfiler.disable', {}),
+                ('Network.clearBrowserCache', {}),
+            ):
+                try:
+                    # Network.disable stops frame events before the cleanup commands.
+                    wait_reply(send(method, params), timeout=2)
+                except Exception as cleanup_exc:
+                    print(f'Browser cleanup warning ({method}): {cleanup_exc}', flush=True)
+            print('Browser cleanup complete (cookies and game session preserved)', flush=True)
+        except Exception as cleanup_exc:
+            print(f'Browser cleanup warning: {cleanup_exc}', flush=True)
+        finally:
+            ws.close()
         Path(a.report).write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
         # Final summary: complete decoded scan, independent of console display filters.
         # SQL state counts inserted castle records only (not import_history).

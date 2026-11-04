@@ -1,3 +1,10 @@
+# v1.0.9.6 changes
+
+- Ignore Night'sWatch castles and castles with X < 5 or Y < 5 in live results, statistics and power lookup queues. Raw CSV records remain intact.
+- Skip excluded castles during scan-time and bulk power lookups.
+- After each kingdom, best-effort CDP cleanup: disable event domains, release temporary buffers, request JavaScript garbage collection, and clear browser resource cache without clearing cookies or reloading the game.
+- SQL and web upload remain disabled.
+
 ## v1.0.9.5 changes
 
 - Scan Statistics now displays each scanned kingdom separately with Untruced, Truced and Total counts, plus an overall TOTAL row. Night'sWatch exclusions still apply.

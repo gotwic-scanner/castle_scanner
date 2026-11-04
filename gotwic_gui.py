@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.4
+# GOTWiC Scanner GUI package release: 1.0.9.6
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 from web_upload import upload_csv, UPLOAD_ENDPOINT
+from gotwic_scanner_v2_2 import ignored_castle
 from power_timing import PROFILES, DEFAULT_PROFILE
 from csv_storage import CSV_DIR, migrate_root_csv
 
@@ -465,7 +466,7 @@ class MainWindow(QMainWindow):
         # Match the scanner's name-based power exemption: Night'sWatch castles
         # remain in the underlying scan results, but not in the live UI or stats.
         eligible = [r for r in self.live_results
-                    if not str(r.get('name') or '').startswith("Night'sWatch")]
+                    if not ignored_castle(r.get('name'), r.get('x'), r.get('y'))]
         visible = [r for r in eligible
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
                    and meets_minimum(r)
@@ -752,6 +753,8 @@ class MainWindow(QMainWindow):
                 if castle_match:
                     name, x, y, status = castle_match.groups()
                     status = status.upper()
+                    if ignored_castle(name, x, y):
+                        continue
                     self.live_results.append({'kingdom': self.current_scan_kingdom, 'name': name.strip(), 'x': int(x), 'y': int(y), 'status': status})
                     self.refresh_live_table()
                     continue
@@ -925,7 +928,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Snapshot unavailable', 'The latest scan CSV is missing.')
             return
         eligible = [r for r in rows if str(r.get('status', '')).upper() == status
-                    and not self.has_power(r)]
+                    and not self.has_power(r)
+                    and not ignored_castle(r.get('name'), r.get('x'), r.get('y'))]
         targets = []
         for r in eligible:
             try:
@@ -1129,7 +1133,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.5'
+APP_VERSION = '1.0.9.6'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
