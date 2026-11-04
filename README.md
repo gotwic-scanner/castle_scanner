@@ -307,3 +307,10 @@ CSV retention: Settings > Auto CSV cleanup (days), default 14; 0 disables. Clean
 ## v1.0.9.8 — Discord minimum power filter
 
 Settings > Discord Webhook Reporting now includes a persistent **Minimum castle power** dropdown: 500 Million (default), 1 Billion, 1.5 Billion, or 2 Billion. Discord reports include only castles whose known power is at least the selected threshold. Castles without valid power are omitted. The threshold affects Discord reports only, not scan collection, local CSV storage, Castle Explorer, or scan statistics. Existing status and castle-name/coordinate exclusions still apply.
+
+
+## v1.0.9.9 — Discord, sorting, buffer, UNKNOWN filter
+- Discord: do not send a report if zero castles meet the minimum power requirement; order qualifying castles highest power first, then alphabetically for ties.
+- Default Current Scan and Castle Explorer sort by Power (M), highest first. Unknown power appears last; users may manually change sorting.
+- Configurable scanner buffer maximum increased to 48, default 24; selected value persists in settings.
+- Current Scan Display dropdown adds UNKNOWN (Potential Fervor), with a nearby one-click UNKNOWN toggle. UNKNOWN is not proof of Fervor.

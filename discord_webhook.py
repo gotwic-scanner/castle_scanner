@@ -21,7 +21,7 @@ def _post(url, message, timeout=10):
     payload = json.dumps({'content': message, 'allowed_mentions': {'parse': []}}, ensure_ascii=False).encode('utf-8')
     for attempt in range(4):
         request = urllib.request.Request(url, data=payload, headers={
-            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.8'}, method='POST')
+            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.9'}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()
@@ -74,9 +74,12 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
             continue
         if not (power_millions >= min_power_millions):
             continue
-        selected.append(c)
+        selected.append((power_millions, c))
+    if not selected:
+        return 0, 0
+    selected.sort(key=lambda entry: (-entry[0], str(entry[1].get('name') or entry[1].get('player') or '').casefold()))
     heading = f'**GOTWiC Scanner — Kingdom {kingdom}**\n{len(selected)} castle(s) with power ≥ {min_power_millions:,}M — {"Unprotected only" if mode == "unprotected" else "Protected and unprotected"}'
-    lines = [_format_castle(c) for c in selected]
+    lines = [_format_castle(c) for _, c in selected]
     messages = []
     current = heading
     for line in lines:

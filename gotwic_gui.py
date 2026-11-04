@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.7
+# GOTWiC Scanner GUI package release: 1.0.9.9
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
         for millions in (1000, 1250, 1500, 1750, 2000):
             self.minimum_power.addItem(f'{millions / 1000:.3f} billion', float(millions))
         self.minimum_power.currentIndexChanged.connect(self.refresh_live_table)
-        self.buffer = QSpinBox(); self.buffer.setRange(1,32); self.buffer.setValue(24)
+        self.buffer = QSpinBox(); self.buffer.setRange(1,48); self.buffer.setValue(24)
         self.verbose_power = QCheckBox('Castle power (verbose) — slower scan')
         self.enable_sql = QCheckBox('SQL import (temporarily disabled)')
         self.enable_sql.setChecked(False)
@@ -230,11 +230,18 @@ class MainWindow(QMainWindow):
         live_header.addStretch()
         live_header.addWidget(QLabel('Display'))
         self.live_status_filter = QComboBox()
-        self.live_status_filter.addItems(['ALL', 'PROTECTED', 'UNPROTECTED'])
+        self.live_status_filter.addItems(['ALL', 'PROTECTED', 'UNPROTECTED', 'UNKNOWN (Potential Fervor)'])
         self.live_status_filter.currentTextChanged.connect(self.refresh_live_table)
         live_header.addWidget(self.live_status_filter)
+        self.unknown_toggle = QPushButton('UNKNOWN')
+        self.unknown_toggle.setToolTip('Toggle UNKNOWN-only castles (Potential Fervor)')
+        self.unknown_toggle.setCheckable(True)
+        self.unknown_toggle.clicked.connect(self.toggle_unknown_filter)
+        self.live_status_filter.currentIndexChanged.connect(self.sync_unknown_toggle)
+        live_header.addWidget(self.unknown_toggle)
         layout.addLayout(live_header)
         self.live_table = self.make_table(['Kingdom', 'Castle', 'X', 'Y', 'Truce Status', 'Power (M)'])
+        self.live_table.sortItems(5, Qt.SortOrder.DescendingOrder)
         self.live_table.horizontalHeader().setStretchLastSection(False)
         self.live_table.setColumnWidth(0, 95)
         self.live_table.setColumnWidth(1, 200)
@@ -289,6 +296,7 @@ class MainWindow(QMainWindow):
         bar.addWidget(self.search); bar.addWidget(self.status_filter); layout.addLayout(bar)
         self.summary = QLabel('No snapshots loaded'); layout.addWidget(self.summary)
         self.castles_table = self.make_table(['Castle', 'X', 'Y', 'Truce Status', 'Power (M)', 'last_seen_utc']); layout.addWidget(self.castles_table)
+        self.castles_table.sortItems(4, Qt.SortOrder.DescendingOrder)
         self.castles_table.cellDoubleClicked.connect(self.request_power_at_row)
         self.castles_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.castles_table.customContextMenuRequested.connect(self.show_castle_context_menu)
@@ -341,6 +349,8 @@ class MainWindow(QMainWindow):
         web_form.addRow('Upload status', self.web_status)
         layout.addWidget(web_group)
         self.web_settings = QSettings('GOTWiC', 'Scanner')
+        self.buffer.setValue(max(1, min(48, self.web_settings.value('scan_buffer', 24, type=int))))
+        self.buffer.valueChanged.connect(lambda value: self.web_settings.setValue('scan_buffer', value))
         saved_profile = str(self.web_settings.value('power_timing_profile', DEFAULT_PROFILE))
         index = self.power_timing_profile.findData(saved_profile)
         self.power_timing_profile.setCurrentIndex(index if index >= 0 else self.power_timing_profile.findData(DEFAULT_PROFILE))
@@ -517,8 +527,8 @@ class MainWindow(QMainWindow):
                              QTableWidgetItem)
                 item = item_type(str(value if value is not None else ''))
                 if column_name in ('Power (M)', 'X', 'Y'):
-                    try: item.setData(Qt.ItemDataRole.UserRole, float(value or 0))
-                    except (ValueError, TypeError): item.setData(Qt.ItemDataRole.UserRole, 0.0)
+                    try: item.setData(Qt.ItemDataRole.UserRole, float(value) if value is not None and str(value).strip() else -1.0)
+                    except (ValueError, TypeError): item.setData(Qt.ItemDataRole.UserRole, -1.0)
                 if str(table.horizontalHeaderItem(j).text()) == 'Truce Status':
                     item.setData(Qt.ItemDataRole.UserRole, {'UNPROTECTED':0,'UNKNOWN':1,'PROTECTED':2}.get(str(value).upper(),3))
                 if text_color is not None:
@@ -528,8 +538,14 @@ class MainWindow(QMainWindow):
         if sort_col >= 0: table.sortItems(sort_col, sort_order)
         table.resizeRowsToContents()
 
+    def toggle_unknown_filter(self, checked):
+        self.live_status_filter.setCurrentIndex(3 if checked else 0)
+
+    def sync_unknown_toggle(self, *_):
+        self.unknown_toggle.setChecked(self.live_status_filter.currentIndex() == 3)
+
     def refresh_live_table(self, *_):
-        status_filter = self.live_status_filter.currentText()
+        status_filter = self.live_status_filter.currentText().split(" ", 1)[0]
         minimum_millions = float(self.minimum_power.currentData() or 0)
         player_term = self.player.text().strip().casefold()
         def meets_minimum(record):
@@ -680,7 +696,7 @@ class MainWindow(QMainWindow):
         self.explorer_visible = filtered
         self.fill_table(self.castles_table,
                         [[r.get('name', ''), r.get('x', ''), r.get('y', ''),
-                          r.get('status', 'UNKNOWN'), r.get('status_source', 0),
+                          r.get('status', 'UNKNOWN'), r.get('status_source', ''),
                           r.get('last_seen_utc', '')] for _, r in filtered],
                         [str(r.get('status', 'UNKNOWN')).upper() for _, r in filtered])
         all_rows = [r for _, r in source]
@@ -1221,7 +1237,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.8'
+APP_VERSION = '1.0.9.9'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

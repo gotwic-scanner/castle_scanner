@@ -238,7 +238,7 @@ def main():
     p.add_argument('--settle',type=float,default=3.0)
     p.add_argument('--response-timeout',type=float,default=1.5,help='Seconds to await a 9001 response after navigation')
     p.add_argument('--retries',type=int,default=2,help='Additional attempts to recover a missing batch response')
-    p.add_argument('--buffer','--buf',dest='buffer',type=int,default=24,help='Maximum outstanding map responses (default 24; range 1..32)')
+    p.add_argument('--buffer','--buf',dest='buffer',type=int,default=24,help='Maximum outstanding map responses (default 24; range 1..48)')
     p.add_argument('--report',default='gotwic_scanner_v2_1_report.json')
     p.add_argument('--db-host',default=os.getenv('GOTWIC_DB_HOST','127.0.0.1'))
     p.add_argument('--db-port',type=int,default=int(os.getenv('GOTWIC_DB_PORT','3306')))
@@ -260,7 +260,7 @@ def main():
     if not (0<=a.x_min<=a.x_max<=719 and 0<=a.y_min<=a.y_max<=719):p.error('Coordinate bounds must be within 0..719')
     if a.settle<0:p.error('--settle must be nonnegative')
     if a.response_timeout<=0 or a.retries<0:p.error('--response-timeout must be positive and --retries nonnegative')
-    if not 1<=a.buffer<=32:p.error('--buffer must be 1..32')
+    if not 1<=a.buffer<=48:p.error('--buffer must be 1..48')
     if not a.no_db and not a.db_name:p.error('Provide --db-name or GOTWIC_DB_NAME, or use --no-db')
     mask_points=None
     if a.mode=='auto' and a.mask.lower()!='none':
