@@ -1,3 +1,7 @@
+## v1.0.9.4
+- Exclude castles with names starting with `Night'sWatch` from the Current Scan list and numeric scan statistics, matching the existing power-check exemption. CSV and SQL records remain unchanged.
+- Omit `WASM_RECOVERY_GUIDELINE.md` from the distributed application and release manifests.
+
 ## v1.0.9.3
 - Compact Power (M) column and numeric live scan statistics for untruced, truced, and total castles (all results, independent of filters).
 - Double-clicking a castle switches to its recorded kingdom before navigating and retrieving power; leaves castle dialog open.
@@ -58,7 +62,7 @@ Settings now includes **Delete all CSV files**. Clicking it immediately deletes 
 
 ## v1.0.7 — WASM navigation recovery
 
-Updated verified Unity WASM navigation from slot 62958 / function 145867 to slot 62960 / function 145870 for game build `2.81.0_39b7b26851`. The existing five navigation arguments and castle decoder remain unchanged. See `WASM_RECOVERY_GUIDELINE.md` for the reusable recovery procedure. Full scanner regression testing is still required.
+Updated verified Unity WASM navigation from slot 62958 / function 145867 to slot 62960 / function 145870 for game build `2.81.0_39b7b26851`. The existing five navigation arguments and castle decoder remain unchanged. Full scanner regression testing is still required.
 
 ## v1.0.6.8 — mandatory detected updates
 

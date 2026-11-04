@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.3
+# GOTWiC Scanner GUI package release: 1.0.9.4
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -459,19 +459,23 @@ class MainWindow(QMainWindow):
                 return float(record.get('power') or 0) >= minimum_millions
             except (ValueError, TypeError):
                 return False
-        visible = [r for r in self.live_results
+        # Match the scanner's name-based power exemption: Night'sWatch castles
+        # remain in the underlying scan results, but not in the live UI or stats.
+        eligible = [r for r in self.live_results
+                    if not str(r.get('name') or '').startswith("Night'sWatch")]
+        visible = [r for r in eligible
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
                    and meets_minimum(r)
                    and (not player_term or player_term in str(r.get('name') or '').casefold())]
         rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
-        # Count all castles from this run, independent of display/search/power filters.
-        untruced = sum(str(r.get('status', '')).upper() == 'UNPROTECTED' for r in self.live_results)
-        truced = sum(str(r.get('status', '')).upper() == 'PROTECTED' for r in self.live_results)
+        # Count eligible castles only, independent of display/search/power filters.
+        untruced = sum(str(r.get('status', '')).upper() == 'UNPROTECTED' for r in eligible)
+        truced = sum(str(r.get('status', '')).upper() == 'PROTECTED' for r in eligible)
         self.stat_untruced.setText(f'{untruced:,}')
         self.stat_truced.setText(f'{truced:,}')
-        self.stat_total.setText(f'{len(self.live_results):,}')
+        self.stat_total.setText(f'{len(eligible):,}')
 
     def choose_folder(self):
         folder=QFileDialog.getExistingDirectory(self,'CSV folder',self.folder.text())
@@ -1103,7 +1107,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.3'
+APP_VERSION = '1.0.9.4'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
