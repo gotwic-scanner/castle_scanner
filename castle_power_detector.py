@@ -7,12 +7,12 @@ import sys
 import time
 import urllib.request
 import websocket
-from gotwic_scanner_v2_2 import (NAV, PREFLIGHT, decode_power_20007, POWER_TIMEOUT,
+from gotwic_scanner_v2_2 import (NAV, PREFLIGHT, KINGDOM_SELECT, decode_power_20007, POWER_TIMEOUT,
     POWER_WATER_MAP_ID)
 from power_timing import PROFILES, DEFAULT_PROFILE, timings
 
 
-def power_session(port, profile=DEFAULT_PROFILE, keep_open=False):
+def power_session(port, profile=DEFAULT_PROFILE, keep_open=False, kingdom=None):
     timing = timings(profile)
     with urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=5) as response:
         pages = json.load(response)
@@ -82,6 +82,12 @@ def power_session(port, profile=DEFAULT_PROFILE, keep_open=False):
         cid=valid[0]['id']
         if not evaluate(PREFLIGHT,cid).get('ok'):
             raise RuntimeError('Game WASM preflight failed')
+        if kingdom is not None:
+            switched = evaluate(KINGDOM_SELECT.replace('__KINGDOM__', str(kingdom)), cid)
+            if not isinstance(switched, dict) or not switched.get('ok'):
+                raise RuntimeError(f'Kingdom switch to {kingdom} failed: {switched}')
+            # Allow the asynchronous game transition to settle before map navigation.
+            time.sleep(0.5)
         viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
         px,py=round(viewport['w']*.8),round(viewport['h']*.75)
         def lookup(x, y, name):
@@ -120,8 +126,8 @@ def power_session(port, profile=DEFAULT_PROFILE, keep_open=False):
 
 
 
-def detect(x, y, name, port, profile=DEFAULT_PROFILE, keep_open=False):
-    session = power_session(port, profile, keep_open=keep_open)
+def detect(x, y, name, port, profile=DEFAULT_PROFILE, keep_open=False, kingdom=None):
+    session = power_session(port, profile, keep_open=keep_open, kingdom=kingdom)
     lookup = next(session)
     try:
         return lookup(x, y, name)
@@ -162,6 +168,7 @@ def main():
             stream.reconfigure(encoding='utf-8', errors='replace')
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--keep-open',action='store_true',help='Leave castle dialog open after single lookup')
+    parser.add_argument('--kingdom',type=int,help='Switch to this kingdom before opening the castle')
     parser.add_argument('--batch',action='store_true',help='Read JSON targets from stdin, one per line')
     parser.add_argument('--x',type=int)
     parser.add_argument('--y',type=int)
@@ -176,7 +183,7 @@ def main():
     if not (0<=args.x<=650 and 0<=args.y<=710):
         parser.error('Coordinates outside selectable map')
     try:
-        result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile,args.keep_open)
+        result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile,args.keep_open,args.kingdom)
         print(json.dumps(result,ensure_ascii=False))
     except Exception as exc:
         print(json.dumps({'success':False,'error':str(exc)}))

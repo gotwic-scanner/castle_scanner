@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9.2",
+  "version": "1.0.9.3",
   "files": [
     {
       "path": "CREATE_SHORTCUT.ps1",
@@ -13,13 +13,13 @@
     },
     {
       "path": "GUI_README.md",
-      "size": 18184,
-      "sha256": "5e56626ee443cac14dc1a8a9c2f269aefcb7ff89d086b89311d1bfc9d862aa97"
+      "size": 18463,
+      "sha256": "dbd839435ed7eb4d202d8da503901ceea27b02b300f064b8e98b580aa7094abb"
     },
     {
       "path": "README.md",
-      "size": 18184,
-      "sha256": "5e56626ee443cac14dc1a8a9c2f269aefcb7ff89d086b89311d1bfc9d862aa97"
+      "size": 18463,
+      "sha256": "dbd839435ed7eb4d202d8da503901ceea27b02b300f064b8e98b580aa7094abb"
     },
     {
       "path": "RUN_GUI.bat",
@@ -29,7 +29,7 @@
     {
       "path": "VERSION",
       "size": 8,
-      "sha256": "2f093e0b8b47c42101ab8756b98392c9bd52003b7425c781acf4f69e51878ec6"
+      "sha256": "17438ba651a517d69d371bfaf94182c1131c28eaeb8113ffecbbe2cd8f2e079a"
     },
     {
       "path": "WASM_RECOVERY_GUIDELINE.md",
@@ -38,8 +38,8 @@
     },
     {
       "path": "castle_power_detector.py",
-      "size": 8237,
-      "sha256": "64e43991338dd8ab137ef2e762a9e2ee6b23c08b7ad9a998fe889abaf588d912"
+      "size": 8808,
+      "sha256": "2489acccd0611ba24aa09d967a59d5a0017b56b57652257ba3ca891b3e9bdf93"
     },
     {
       "path": "csv_storage.py",
@@ -58,8 +58,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 62118,
-      "sha256": "2ffd4d1513fc88bc897f2ab59cef63115806f788f1e08af70244cb9501fc4ddd"
+      "size": 64006,
+      "sha256": "a0bdc5e89b8c4fa724b0ef3297090022952d01769afb9aa4552711e02d61dc2c"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",

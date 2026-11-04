@@ -1,3 +1,7 @@
+## v1.0.9.3
+- Compact Power (M) column and numeric live scan statistics for untruced, truced, and total castles (all results, independent of filters).
+- Double-clicking a castle switches to its recorded kingdom before navigating and retrieving power; leaves castle dialog open.
+
 ## v1.0.9.2
 - Batch kingdoms accepts comma-separated selections (2 or 3 unique kingdoms) in entered order, e.g. `550, 542, 547`.
 - Rejects malformed, duplicate, out-of-range, or more than three entries before scanning; ascending ranges and single kingdom selection remain supported.

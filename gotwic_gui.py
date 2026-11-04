@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.0
+# GOTWiC Scanner GUI package release: 1.0.9.3
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -228,7 +228,35 @@ class MainWindow(QMainWindow):
         live_header.addWidget(self.live_status_filter)
         layout.addLayout(live_header)
         self.live_table = self.make_table(['Kingdom', 'Castle', 'X', 'Y', 'Truce Status', 'Power (M)'])
-        layout.addWidget(self.live_table, 3)
+        self.live_table.horizontalHeader().setStretchLastSection(False)
+        self.live_table.setColumnWidth(0, 95)
+        self.live_table.setColumnWidth(1, 200)
+        self.live_table.setColumnWidth(2, 90)
+        self.live_table.setColumnWidth(3, 90)
+        self.live_table.setColumnWidth(4, 145)
+        self.live_table.setColumnWidth(5, 115)
+        self.live_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        results_row = QHBoxLayout()
+        results_row.addWidget(self.live_table, 1)
+        stats_box = QGroupBox('Scan Statistics')
+        stats_box.setFixedWidth(180)
+        stats_layout = QVBoxLayout(stats_box)
+        self.stat_untruced = QLabel('0')
+        self.stat_truced = QLabel('0')
+        self.stat_total = QLabel('0')
+        for title, counter, color in (
+            ('Untruced', self.stat_untruced, '#78e08f'),
+            ('Truced', self.stat_truced, '#ff8e8e'),
+            ('Total castles', self.stat_total, None)):
+            heading = QLabel(title)
+            stats_layout.addWidget(heading)
+            counter.setAlignment(Qt.AlignmentFlag.AlignRight)
+            counter.setStyleSheet('font-size: 23px; font-weight: bold;' + (f'color: {color};' if color else ''))
+            stats_layout.addWidget(counter)
+            stats_layout.addSpacing(12)
+        stats_layout.addStretch()
+        results_row.addWidget(stats_box)
+        layout.addLayout(results_row, 3)
         self.live_table.cellDoubleClicked.connect(self.request_power_at_live_row)
         self.live_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.live_table.customContextMenuRequested.connect(self.show_live_context_menu)
@@ -438,6 +466,12 @@ class MainWindow(QMainWindow):
         rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
+        # Count all castles from this run, independent of display/search/power filters.
+        untruced = sum(str(r.get('status', '')).upper() == 'UNPROTECTED' for r in self.live_results)
+        truced = sum(str(r.get('status', '')).upper() == 'PROTECTED' for r in self.live_results)
+        self.stat_untruced.setText(f'{untruced:,}')
+        self.stat_truced.setText(f'{truced:,}')
+        self.stat_total.setText(f'{len(self.live_results):,}')
 
     def choose_folder(self):
         folder=QFileDialog.getExistingDirectory(self,'CSV folder',self.folder.text())
@@ -997,7 +1031,7 @@ class MainWindow(QMainWindow):
                '--name',name,'--port',str(self.port.value()),
                '--power-timing-profile',self.power_timing_profile.currentData()]
         if keep_open:
-            cmd.append('--keep-open')
+            cmd.extend(['--keep-open', '--kingdom', str(target['kingdom'])])
         self.get_power_btn.setEnabled(False)
         self.live_power_btn.setEnabled(False)
         self.status.setText(f'Looking up power for {name} at X={x}, Y={y}...')
@@ -1069,7 +1103,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.2'
+APP_VERSION = '1.0.9.3'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
