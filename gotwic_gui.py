@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.6
+# GOTWiC Scanner GUI package release: 1.0.9.7
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 from web_upload import upload_csv, UPLOAD_ENDPOINT
+from discord_webhook import validate_webhook, send_kingdom_report, send_test
 from gotwic_scanner_v2_2 import ignored_castle
 from power_timing import PROFILES, DEFAULT_PROFILE
 from csv_storage import CSV_DIR, migrate_root_csv
@@ -352,8 +353,72 @@ class MainWindow(QMainWindow):
         self.web_retry.setEnabled(False)
         self.web_retry.setToolTip('Web upload is disabled in v1.0.9.5')
 
+        discord_group = QGroupBox('Discord Webhook Reporting')
+        discord_form = QFormLayout(discord_group)
+        self.discord_enabled = QCheckBox('Enable automatic Discord reporting after each kingdom')
+        self.discord_url = QLineEdit()
+        self.discord_url.setPlaceholderText('https://discord.com/api/webhooks/...')
+        self.discord_url.setEchoMode(QLineEdit.EchoMode.Password)
+        self.discord_mode = QComboBox()
+        self.discord_mode.addItem('UNPROTECTED only', 'unprotected')
+        self.discord_mode.addItem('PROTECTED and UNPROTECTED', 'all')
+        self.discord_test = QPushButton('Test Webhook')
+        self.discord_test.clicked.connect(self.test_discord_webhook)
+        self.discord_status = QLabel('Disabled')
+        discord_form.addRow(self.discord_enabled)
+        discord_form.addRow('Webhook URL', self.discord_url)
+        discord_form.addRow('Report mode', self.discord_mode)
+        discord_form.addRow(self.discord_test)
+        discord_form.addRow('Status', self.discord_status)
+        layout.addWidget(discord_group)
+        self.discord_enabled.setChecked(self.web_settings.value('discord_enabled', False, type=bool))
+        self.discord_url.setText(str(self.web_settings.value('discord_url', '') or ''))
+        saved_discord_mode = str(self.web_settings.value('discord_mode', 'unprotected'))
+        mode_index = self.discord_mode.findData(saved_discord_mode)
+        self.discord_mode.setCurrentIndex(mode_index if mode_index >= 0 else 0)
+        self.discord_enabled.toggled.connect(lambda v: self.web_settings.setValue('discord_enabled', v))
+        self.discord_url.textChanged.connect(lambda v: self.web_settings.setValue('discord_url', v.strip()))
+        self.discord_mode.currentIndexChanged.connect(
+            lambda _: self.web_settings.setValue('discord_mode', self.discord_mode.currentData()))
+
+
         layout.addStretch()
         self.tabs.addTab(tab,'Settings')
+
+    def test_discord_webhook(self):
+        try:
+            url = validate_webhook(self.discord_url.text())
+        except ValueError as exc:
+            self.discord_status.setText(str(exc))
+            return
+        self.discord_test.setEnabled(False)
+        self.discord_status.setText('Testing...')
+        def worker():
+            try:
+                send_test(url)
+                self.messages.put(('discord_test', (True, 'Webhook test succeeded')))
+            except Exception:
+                self.messages.put(('discord_test', (False, 'Webhook test failed; check URL and connectivity')))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def queue_discord_report(self, kingdom, castles):
+        if not self.discord_enabled.isChecked():
+            return
+        try:
+            url = validate_webhook(self.discord_url.text())
+        except ValueError:
+            self.console.append('Discord: invalid webhook configuration; report skipped')
+            return
+        mode = self.discord_mode.currentData()
+        snapshot = list(castles)
+        self.console.append(f'Discord: queuing kingdom {kingdom} report')
+        def worker():
+            try:
+                count, messages = send_kingdom_report(url, kingdom, snapshot, mode)
+                self.messages.put(('discord_report', (True, kingdom, count, messages)))
+            except Exception:
+                self.messages.put(('discord_report', (False, kingdom, 0, 0)))
+        threading.Thread(target=worker, daemon=True).start()
 
     def save_web_settings(self):
         self.web_settings.setValue('web_enabled', self.web_enabled.isChecked())
@@ -730,6 +795,17 @@ class MainWindow(QMainWindow):
         for _ in range(300):
             try:kind,value=self.messages.get_nowait()
             except queue.Empty:break
+            if kind == 'discord_test':
+                self.discord_test.setEnabled(True)
+                self.discord_status.setText(value[1])
+                continue
+            if kind == 'discord_report':
+                ok, kingdom, count, messages = value
+                note = (f'Discord: kingdom {kingdom} sent ({count} castles, {messages} messages)'
+                        if ok else f'Discord: kingdom {kingdom} report failed; scanning unaffected')
+                self.discord_status.setText(note)
+                self.console.append(note)
+                continue
             if kind == 'sql_check':
                 continue  # SQL is disabled.
             if kind=='upload_ok':
@@ -801,6 +877,7 @@ class MainWindow(QMainWindow):
                             castle['power'] = lookup.get((castle['name'], castle['x'], castle['y']), 0)
                     self.refresh_live_table()
                     self.console.append(f'Kingdom {self.current_scan_kingdom} complete — {len(self.batch_kingdoms)} remaining')
+                    self.queue_discord_report(self.current_scan_kingdom, report.get('castles', []))
                     if self.batch_kingdoms:
                         self._start_next_kingdom()
                         continue
@@ -1133,7 +1210,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.6'
+APP_VERSION = '1.0.9.7'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

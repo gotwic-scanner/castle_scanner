@@ -1,3 +1,11 @@
+# v1.0.9.7 — Discord Webhook Reporting
+
+- Settings: enable/disable automatic Discord reporting (disabled by default).
+- Configure webhook URL, report mode (UNPROTECTED by default, or both protection statuses), and Test Webhook.
+- Sends each completed kingdom report asynchronously; supports large reports and Discord HTTP 429 rate limiting.
+- Existing Night'sWatch and coordinate exclusions are respected. Web upload and SQL remain disabled.
+- Webhook URL is stored in local application settings and is not printed to the console. Treat this URL as a secret.
+
 # v1.0.9.6 changes
 
 - Ignore Night'sWatch castles and castles with X < 5 or Y < 5 in live results, statistics and power lookup queues. Raw CSV records remain intact.
