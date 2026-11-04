@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.9
+# GOTWiC Scanner GUI package release: 1.0.9.10
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -142,6 +142,7 @@ class MainWindow(QMainWindow):
         self.bulk_power_failed = 0
         self.bulk_power_status = None
         self.bulk_worker = None
+        self.manual_power_reports = []
         self.bulk_messages = queue.Queue()
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
@@ -274,10 +275,13 @@ class MainWindow(QMainWindow):
         bulk_row = QHBoxLayout()
         self.bulk_protected_btn = QPushButton('Get Power — PROTECTED (missing only)')
         self.bulk_unprotected_btn = QPushButton('Get Power — UNPROTECTED (missing only)')
+        self.bulk_unknown_btn = QPushButton('Get Power — UNKNOWN (missing only)')
         self.bulk_protected_btn.clicked.connect(lambda: self.start_bulk_power('PROTECTED'))
         self.bulk_unprotected_btn.clicked.connect(lambda: self.start_bulk_power('UNPROTECTED'))
+        self.bulk_unknown_btn.clicked.connect(lambda: self.start_bulk_power('UNKNOWN'))
         bulk_row.addWidget(self.bulk_protected_btn)
         bulk_row.addWidget(self.bulk_unprotected_btn)
+        bulk_row.addWidget(self.bulk_unknown_btn)
         layout.addLayout(bulk_row)
         self.console = QTextEdit(); self.console.setReadOnly(True)
         self.console.setMaximumHeight(155)
@@ -421,7 +425,7 @@ class MainWindow(QMainWindow):
                 self.messages.put(('discord_test', (False, 'Webhook test failed; check URL and connectivity')))
         threading.Thread(target=worker, daemon=True).start()
 
-    def queue_discord_report(self, kingdom, castles):
+    def queue_discord_report(self, kingdom, castles, manual=False):
         if not self.discord_enabled.isChecked():
             return
         try:
@@ -432,10 +436,10 @@ class MainWindow(QMainWindow):
         mode = self.discord_mode.currentData()
         min_power = int(self.discord_min_power.currentData() or 500)
         snapshot = list(castles)
-        self.console.append(f'Discord: queuing kingdom {kingdom} report')
+        self.console.append(f'Discord: queuing kingdom {kingdom} {"manual power" if manual else "scan"} report')
         def worker():
             try:
-                count, messages = send_kingdom_report(url, kingdom, snapshot, mode, min_power_millions=min_power)
+                count, messages = send_kingdom_report(url, kingdom, snapshot, mode, min_power_millions=min_power, allow_unknown=manual, manual=manual)
                 self.messages.put(('discord_report', (True, kingdom, count, messages)))
             except Exception:
                 self.messages.put(('discord_report', (False, kingdom, 0, 0)))
@@ -1050,6 +1054,7 @@ class MainWindow(QMainWindow):
         if not targets:
             self.status.setText(f'Bulk {status}: no castles missing power in latest scan')
             return
+        self.manual_power_reports = []
         self.bulk_power_status = status
         self.bulk_power_queue = targets
         self.bulk_power_total = len(targets)
@@ -1057,6 +1062,7 @@ class MainWindow(QMainWindow):
         self.bulk_power_failed = 0
         self.bulk_protected_btn.setEnabled(False)
         self.bulk_unprotected_btn.setEnabled(False)
+        self.bulk_unknown_btn.setEnabled(False)
         self.console.append(f'Bulk {status}: checking {len(targets)} castles missing power from {snapshot.name}')
         self.launch_bulk_worker()
 
@@ -1098,11 +1104,13 @@ class MainWindow(QMainWindow):
             self.finish_bulk_power()
 
     def finish_bulk_power(self):
+        self.flush_manual_power_reports()
         status = self.bulk_power_status
         self.bulk_power_status = None
         self.bulk_worker = None
         self.bulk_protected_btn.setEnabled(True)
         self.bulk_unprotected_btn.setEnabled(True)
+        self.bulk_unknown_btn.setEnabled(True)
         message = (f'Bulk {status} complete: {self.bulk_power_done - self.bulk_power_failed} saved, '
                    f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
         self.console.append(message)
@@ -1136,14 +1144,25 @@ class MainWindow(QMainWindow):
             self.bulk_power_done += 1
             self.status.setText(f'Bulk {self.bulk_power_status}: {self.bulk_power_done}/{self.bulk_power_total}')
 
+    def flush_manual_power_reports(self):
+        # Only successfully retrieved castles are reported, once per operation.
+        by_kingdom = {}
+        for castle in self.manual_power_reports:
+            by_kingdom.setdefault(castle['kingdom'], []).append(castle)
+        self.manual_power_reports = []
+        for kingdom, castles in by_kingdom.items():
+            self.queue_discord_report(kingdom, castles, manual=True)
+
     def next_bulk_power(self):
         if self.bulk_power_status is None:
             return
         if not self.bulk_power_queue:
+            self.flush_manual_power_reports()
             status = self.bulk_power_status
             self.bulk_power_status = None
             self.bulk_protected_btn.setEnabled(True)
             self.bulk_unprotected_btn.setEnabled(True)
+            self.bulk_unknown_btn.setEnabled(True)
             message = (f'Bulk {status} complete: {self.bulk_power_done - self.bulk_power_failed} saved, '
                        f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
             self.console.append(message)
@@ -1203,6 +1222,21 @@ class MainWindow(QMainWindow):
         self.handle_power_result(result)
         self.power_target = None
 
+    def lookup_castle_status(self, target):
+        # Match the exact CSV snapshot and castle identity; never infer status from GUI filters.
+        try:
+            with Path(target['csv']).open(encoding='utf-8-sig', newline='') as handle:
+                for row in csv.DictReader(handle):
+                    if (str(row.get('kingdom')) == str(target['kingdom'])
+                            and str(row.get('x')) == str(target['x'])
+                            and str(row.get('y')) == str(target['y'])
+                            and str(row.get('name')) == str(target['name'])
+                            and str(row.get('last_seen_utc')) == str(target['stamp'])):
+                        return str(row.get('status') or 'UNKNOWN').upper()
+        except (OSError, csv.Error, UnicodeError, KeyError):
+            pass
+        return 'UNKNOWN'
+
     def handle_power_result(self, result):
         try:
             if not result.get('success'):
@@ -1218,6 +1252,14 @@ class MainWindow(QMainWindow):
                         and castle['y'] == target['y']):
                     castle['power'] = f'{value:.3f}'
             self.refresh_live_table()
+            report_castle = {'kingdom': int(target['kingdom']), 'name': target['name'],
+                             'x': target['x'], 'y': target['y'],
+                             'status': self.lookup_castle_status(target),
+                             'power_millions': float(value)}
+            if self.bulk_power_status is not None:
+                self.manual_power_reports.append(report_castle)
+            else:
+                self.queue_discord_report(target['kingdom'], [report_castle], manual=True)
             self.status.setText(f"Power saved: {target['name']} — {value:.3f} M")
             if self.bulk_power_status is not None:
                 self.console.append(f'Bulk power {self.bulk_power_done + 1}/{self.bulk_power_total}: {target["name"]} — {value:.3f} M')
@@ -1237,7 +1279,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.9'
+APP_VERSION = '1.0.9.10'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

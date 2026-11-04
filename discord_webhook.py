@@ -21,7 +21,7 @@ def _post(url, message, timeout=10):
     payload = json.dumps({'content': message, 'allowed_mentions': {'parse': []}}, ensure_ascii=False).encode('utf-8')
     for attempt in range(4):
         request = urllib.request.Request(url, data=payload, headers={
-            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.9'}, method='POST')
+            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.10'}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()
@@ -48,7 +48,7 @@ def _format_castle(c):
         power_text = ''
     return f"{name} | X:{c.get('x', '?')} Y:{c.get('y', '?')}{power_text}"
 
-def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_millions=500):
+def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_millions=500, allow_unknown=False, manual=False):
     url = validate_webhook(url)
     from gotwic_scanner_v2_2 import ignored_castle
     if min_power_millions not in (500, 1000, 1500, 2000):
@@ -58,9 +58,9 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
         if not isinstance(c, dict) or ignored_castle(c.get('name', ''), c.get('x', 0), c.get('y', 0)):
             continue
         status = str(c.get('status') or '').upper()
-        if mode == 'unprotected' and status != 'UNPROTECTED':
+        if mode == 'unprotected' and status != 'UNPROTECTED' and not (allow_unknown and status == 'UNKNOWN'):
             continue
-        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED'):
+        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED') and not (allow_unknown and status == 'UNKNOWN'):
             continue
         # Prefer raw integer power, falling back to the report's millions value.
         # Castles with unknown, invalid, or zero power must not be posted.
@@ -78,7 +78,7 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
     if not selected:
         return 0, 0
     selected.sort(key=lambda entry: (-entry[0], str(entry[1].get('name') or entry[1].get('player') or '').casefold()))
-    heading = f'**GOTWiC Scanner — Kingdom {kingdom}**\n{len(selected)} castle(s) with power ≥ {min_power_millions:,}M — {"Unprotected only" if mode == "unprotected" else "Protected and unprotected"}'
+    heading = f'**GOTWiC Scanner — Kingdom {kingdom}{" (Manual Power)" if manual else ""}**\n{len(selected)} castle(s) with power ≥ {min_power_millions:,}M — {"Unprotected + UNKNOWN" if mode == "unprotected" and allow_unknown else "Unprotected only" if mode == "unprotected" else "All statuses" if allow_unknown else "Protected and unprotected"}'
     lines = [_format_castle(c) for _, c in selected]
     messages = []
     current = heading

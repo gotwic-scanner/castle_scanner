@@ -1,3 +1,12 @@
+# v1.0.9.10 — Manual Power Discord Reporting
+
+- Successful manual single-castle and bulk power retrievals also trigger Discord reporting when enabled.
+- UNKNOWN castles are eligible in manual reports, including when the webhook mode is UNPROTECTED only; PROTECTED castles still require All statuses mode.
+- Bulk results are sent after retrieval completes, grouped by kingdom, sorted by power descending, and never include failures.
+- Manual reports use the configured minimum power threshold; if none qualify, no message is sent.
+- New bulk Get Power — UNKNOWN button retrieves missing power for UNKNOWN-status castles.
+- Existing automatic scan reporting remains unchanged.
+
 # v1.0.9.7 — Discord Webhook Reporting
 
 - Settings: enable/disable automatic Discord reporting (disabled by default).
