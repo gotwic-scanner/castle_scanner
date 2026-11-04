@@ -21,7 +21,7 @@ def _post(url, message, timeout=10):
     payload = json.dumps({'content': message, 'allowed_mentions': {'parse': []}}, ensure_ascii=False).encode('utf-8')
     for attempt in range(4):
         request = urllib.request.Request(url, data=payload, headers={
-            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.7'}, method='POST')
+            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.8'}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()
@@ -48,9 +48,11 @@ def _format_castle(c):
         power_text = ''
     return f"{name} | X:{c.get('x', '?')} Y:{c.get('y', '?')}{power_text}"
 
-def send_kingdom_report(url, kingdom, castles, mode='unprotected'):
+def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_millions=500):
     url = validate_webhook(url)
     from gotwic_scanner_v2_2 import ignored_castle
+    if min_power_millions not in (500, 1000, 1500, 2000):
+        raise ValueError('Unsupported Discord minimum power threshold')
     selected = []
     for c in castles:
         if not isinstance(c, dict) or ignored_castle(c.get('name', ''), c.get('x', 0), c.get('y', 0)):
@@ -60,8 +62,20 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected'):
             continue
         if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED'):
             continue
+        # Prefer raw integer power, falling back to the report's millions value.
+        # Castles with unknown, invalid, or zero power must not be posted.
+        try:
+            raw_power = c.get('power')
+            if raw_power is not None and str(raw_power).strip() != '':
+                power_millions = float(raw_power) / 1_000_000
+            else:
+                power_millions = float(c.get('power_millions'))
+        except (ValueError, TypeError, OverflowError):
+            continue
+        if not (power_millions >= min_power_millions):
+            continue
         selected.append(c)
-    heading = f'**GOTWiC Scanner — Kingdom {kingdom}**\n{len(selected)} castle(s) — {"Unprotected only" if mode == "unprotected" else "Protected and unprotected"}'
+    heading = f'**GOTWiC Scanner — Kingdom {kingdom}**\n{len(selected)} castle(s) with power ≥ {min_power_millions:,}M — {"Unprotected only" if mode == "unprotected" else "Protected and unprotected"}'
     lines = [_format_castle(c) for c in selected]
     messages = []
     current = heading

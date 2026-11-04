@@ -362,12 +362,17 @@ class MainWindow(QMainWindow):
         self.discord_mode = QComboBox()
         self.discord_mode.addItem('UNPROTECTED only', 'unprotected')
         self.discord_mode.addItem('PROTECTED and UNPROTECTED', 'all')
+        self.discord_min_power = QComboBox()
+        for millions, label in ((500, '500 Million'), (1000, '1 Billion'),
+                                (1500, '1.5 Billion'), (2000, '2 Billion')):
+            self.discord_min_power.addItem(label, millions)
         self.discord_test = QPushButton('Test Webhook')
         self.discord_test.clicked.connect(self.test_discord_webhook)
         self.discord_status = QLabel('Disabled')
         discord_form.addRow(self.discord_enabled)
         discord_form.addRow('Webhook URL', self.discord_url)
         discord_form.addRow('Report mode', self.discord_mode)
+        discord_form.addRow('Minimum castle power', self.discord_min_power)
         discord_form.addRow(self.discord_test)
         discord_form.addRow('Status', self.discord_status)
         layout.addWidget(discord_group)
@@ -376,6 +381,11 @@ class MainWindow(QMainWindow):
         saved_discord_mode = str(self.web_settings.value('discord_mode', 'unprotected'))
         mode_index = self.discord_mode.findData(saved_discord_mode)
         self.discord_mode.setCurrentIndex(mode_index if mode_index >= 0 else 0)
+        saved_discord_power = self.web_settings.value('discord_min_power_millions', 500, type=int)
+        power_index = self.discord_min_power.findData(saved_discord_power)
+        self.discord_min_power.setCurrentIndex(power_index if power_index >= 0 else 0)
+        self.discord_min_power.currentIndexChanged.connect(
+            lambda _: self.web_settings.setValue('discord_min_power_millions', self.discord_min_power.currentData()))
         self.discord_enabled.toggled.connect(lambda v: self.web_settings.setValue('discord_enabled', v))
         self.discord_url.textChanged.connect(lambda v: self.web_settings.setValue('discord_url', v.strip()))
         self.discord_mode.currentIndexChanged.connect(
@@ -410,11 +420,12 @@ class MainWindow(QMainWindow):
             self.console.append('Discord: invalid webhook configuration; report skipped')
             return
         mode = self.discord_mode.currentData()
+        min_power = int(self.discord_min_power.currentData() or 500)
         snapshot = list(castles)
         self.console.append(f'Discord: queuing kingdom {kingdom} report')
         def worker():
             try:
-                count, messages = send_kingdom_report(url, kingdom, snapshot, mode)
+                count, messages = send_kingdom_report(url, kingdom, snapshot, mode, min_power_millions=min_power)
                 self.messages.put(('discord_report', (True, kingdom, count, messages)))
             except Exception:
                 self.messages.put(('discord_report', (False, kingdom, 0, 0)))
@@ -1210,7 +1221,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.7'
+APP_VERSION = '1.0.9.8'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

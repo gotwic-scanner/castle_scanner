@@ -303,3 +303,7 @@ Launch using RUN_GUI.bat. startup.py checks requirements_gui.txt before loading 
 Optional HTTPS CSV upload and manual retry are available in Settings. See `WEB_UPLOAD_SETUP.md` for server setup. No website credentials are included in this package.
 
 CSV retention: Settings > Auto CSV cleanup (days), default 14; 0 disables. Cleanup on startup and after scan.
+
+## v1.0.9.8 — Discord minimum power filter
+
+Settings > Discord Webhook Reporting now includes a persistent **Minimum castle power** dropdown: 500 Million (default), 1 Billion, 1.5 Billion, or 2 Billion. Discord reports include only castles whose known power is at least the selected threshold. Castles without valid power are omitted. The threshold affects Discord reports only, not scan collection, local CSV storage, Castle Explorer, or scan statistics. Existing status and castle-name/coordinate exclusions still apply.
