@@ -21,7 +21,7 @@ def _post(url, message, timeout=10):
     payload = json.dumps({'content': message, 'allowed_mentions': {'parse': []}}, ensure_ascii=False).encode('utf-8')
     for attempt in range(4):
         request = urllib.request.Request(url, data=payload, headers={
-            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.12'}, method='POST')
+            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.13'}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()
@@ -57,10 +57,12 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
     for c in castles:
         if not isinstance(c, dict) or ignored_castle(c.get('name', ''), c.get('x', 0), c.get('y', 0)):
             continue
-        status = str(c.get('status') or '').upper()
-        if mode == 'unprotected' and status not in ('UNPROTECTED', 'UNKNOWN'):
+        status = str(c.get('status') or '').strip().upper()
+        if status in ('UNKNOWN', 'FERVOR'):
             continue
-        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED', 'UNKNOWN'):
+        if mode == 'unprotected' and status != 'UNPROTECTED':
+            continue
+        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED'):
             continue
         # Prefer raw integer power, falling back to the report's millions value.
         # Castles with unknown, invalid, or zero power must not be posted.
@@ -78,7 +80,7 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
     if not selected:
         return 0, 0
     selected.sort(key=lambda entry: (-entry[0], str(entry[1].get('name') or entry[1].get('player') or '').casefold()))
-    heading = (f'**GOTWiC Scanner — Kingdom {kingdom}**\n'
+    heading = (f'**Master Of Merits — Kingdom {kingdom}**\n'
                f'{len(selected)} castle(s) with power ≥ {min_power_millions:,}M')
     lines = [_format_castle(c) for _, c in selected]
     messages = []

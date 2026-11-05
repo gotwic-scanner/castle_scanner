@@ -357,3 +357,10 @@ Settings > Discord Webhook Reporting now includes a persistent **Minimum castle 
 - Get Power UNPROTECTED includes UNKNOWN castles with missing power. The separate UNKNOWN button is relabeled Fervor.
 - Verbose scan-time power checks include UNKNOWN castles.
 - Discord reporting treats UNKNOWN as UNPROTECTED for eligibility, respecting minimum power.
+
+
+## Release v1.0.9.13 (2026-11-05)
+
+- Discord reports exclude castles with underlying status UNKNOWN or FERVOR in all report modes, including automatic scan and manual power retrieval reports.
+- Discord report heading uses **Master Of Merits — Kingdom X**.
+- GUI Fervor power retrieval remains unchanged.
