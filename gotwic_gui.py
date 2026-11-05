@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.11
+# GOTWiC Scanner GUI package release: 1.0.9.12
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -231,11 +231,11 @@ class MainWindow(QMainWindow):
         live_header.addStretch()
         live_header.addWidget(QLabel('Display'))
         self.live_status_filter = QComboBox()
-        self.live_status_filter.addItems(['ALL', 'PROTECTED', 'UNPROTECTED', 'UNKNOWN (Potential Fervor)'])
+        self.live_status_filter.addItems(['ALL', 'PROTECTED', 'UNPROTECTED', 'Fervor'])
         self.live_status_filter.currentTextChanged.connect(self.refresh_live_table)
         live_header.addWidget(self.live_status_filter)
-        self.unknown_toggle = QPushButton('UNKNOWN')
-        self.unknown_toggle.setToolTip('Toggle UNKNOWN-only castles (Potential Fervor)')
+        self.unknown_toggle = QPushButton('Fervor')
+        self.unknown_toggle.setToolTip('Show castles with underlying UNKNOWN status (Fervor)')
         self.unknown_toggle.setCheckable(True)
         self.unknown_toggle.clicked.connect(self.toggle_unknown_filter)
         self.live_status_filter.currentIndexChanged.connect(self.sync_unknown_toggle)
@@ -275,7 +275,7 @@ class MainWindow(QMainWindow):
         bulk_row = QHBoxLayout()
         self.bulk_protected_btn = QPushButton('Get Power — PROTECTED (missing only)')
         self.bulk_unprotected_btn = QPushButton('Get Power — UNPROTECTED (missing only)')
-        self.bulk_unknown_btn = QPushButton('Get Power — UNKNOWN (missing only)')
+        self.bulk_unknown_btn = QPushButton('Get Power — Fervor (missing only)')
         self.bulk_protected_btn.clicked.connect(lambda: self.start_bulk_power('PROTECTED'))
         self.bulk_unprotected_btn.clicked.connect(lambda: self.start_bulk_power('UNPROTECTED'))
         self.bulk_unknown_btn.clicked.connect(lambda: self.start_bulk_power('UNKNOWN'))
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
     def build_explorer(self):
         tab = QWidget(); layout = QVBoxLayout(tab)
         bar = QHBoxLayout(); self.search = QLineEdit(); self.search.setPlaceholderText('Filter by player, ID, status or coordinate'); self.search.textChanged.connect(self.filter_castles)
-        self.status_filter = QComboBox(); self.status_filter.addItems(['ALL','UNPROTECTED','PROTECTED','UNKNOWN']); self.status_filter.currentTextChanged.connect(self.filter_castles)
+        self.status_filter = QComboBox(); self.status_filter.addItems(['ALL','UNPROTECTED','PROTECTED','Fervor']); self.status_filter.currentTextChanged.connect(self.filter_castles)
         self.explorer_history = QComboBox()
         self.explorer_history.addItems(['Latest Scan', 'All Saved Scans'])
         self.explorer_history.currentIndexChanged.connect(self.filter_castles)
@@ -513,14 +513,14 @@ class MainWindow(QMainWindow):
         for i, row in enumerate(rows):
             status = row_statuses[i] if row_statuses and i < len(row_statuses) else None
             if status is None and len(row) > 6 and str(row[6]).upper() in (
-                'PROTECTED', 'UNPROTECTED', 'UNKNOWN'
+                'PROTECTED', 'UNPROTECTED', 'UNKNOWN', 'FERVOR'
             ):
                 status = str(row[6]).upper()
             if status == 'PROTECTED':
                 text_color = QColor('#ff7777')  # light red text
             elif status == 'UNPROTECTED':
                 text_color = QColor('#78e08f')  # light green text
-            elif status == 'UNKNOWN':
+            elif status in ('UNKNOWN', 'FERVOR'):
                 text_color = QColor('#ffd166')  # light amber text
             else:
                 text_color = None
@@ -534,7 +534,7 @@ class MainWindow(QMainWindow):
                     try: item.setData(Qt.ItemDataRole.UserRole, float(value) if value is not None and str(value).strip() else -1.0)
                     except (ValueError, TypeError): item.setData(Qt.ItemDataRole.UserRole, -1.0)
                 if str(table.horizontalHeaderItem(j).text()) == 'Truce Status':
-                    item.setData(Qt.ItemDataRole.UserRole, {'UNPROTECTED':0,'UNKNOWN':1,'PROTECTED':2}.get(str(value).upper(),3))
+                    item.setData(Qt.ItemDataRole.UserRole, {'UNPROTECTED':0,'UNKNOWN':1,'FERVOR':1,'PROTECTED':2}.get(str(value).upper(),3))
                 if text_color is not None:
                     item.setForeground(QBrush(text_color))
                 table.setItem(i, j, item)
@@ -549,7 +549,11 @@ class MainWindow(QMainWindow):
         self.unknown_toggle.setChecked(self.live_status_filter.currentIndex() == 3)
 
     def refresh_live_table(self, *_):
-        status_filter = self.live_status_filter.currentText().split(" ", 1)[0]
+        status_filter = self.live_status_filter.currentText().split(" ", 1)[0].upper()
+        if status_filter == "FERVOR":
+            status_filter = "UNKNOWN".upper()
+        if status_filter == "FERVOR":
+            status_filter = "UNKNOWN"
         minimum_millions = float(self.minimum_power.currentData() or 0)
         player_term = self.player.text().strip().casefold()
         def meets_minimum(record):
@@ -567,7 +571,7 @@ class MainWindow(QMainWindow):
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
                    and meets_minimum(r)
                    and (not player_term or player_term in str(r.get('name') or '').casefold())]
-        rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], r['status'], r.get('power', 0)] for r in visible]
+        rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], ('Fervor' if str(r['status']).upper() == 'UNKNOWN' else r['status']), r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
         # Statistics reflect all eligible observations, independent of table filters.
@@ -696,6 +700,8 @@ class MainWindow(QMainWindow):
     def filter_castles(self,*_):
         term = self.search.text().casefold().strip()
         status = self.status_filter.currentText()
+        if status == "Fervor":
+            status = "UNKNOWN"
         source = self.explorer_rows()
         filtered = [(path, r) for path, r in source
                     if (status == 'ALL' or r['status'] == status)
@@ -703,7 +709,7 @@ class MainWindow(QMainWindow):
         self.explorer_visible = filtered
         self.fill_table(self.castles_table,
                         [[r.get('name', ''), r.get('x', ''), r.get('y', ''),
-                          r.get('status', 'UNKNOWN'), r.get('status_source', ''),
+                          ('Fervor' if str(r.get('status', 'UNKNOWN')).upper() == 'UNKNOWN' else r.get('status', 'UNKNOWN')), r.get('status_source', ''),
                           r.get('last_seen_utc', '')] for _, r in filtered],
                         [str(r.get('status', 'UNKNOWN')).upper() for _, r in filtered])
         all_rows = [r for _, r in source]
@@ -1046,7 +1052,7 @@ class MainWindow(QMainWindow):
         if not snapshot.is_file():
             QMessageBox.warning(self, 'Snapshot unavailable', 'The latest scan CSV is missing.')
             return
-        eligible = [r for r in rows if str(r.get('status', '')).upper() == status
+        eligible = [r for r in rows if (str(r.get('status', '')).upper() in ('UNPROTECTED', 'UNKNOWN') if status == 'UNPROTECTED' else str(r.get('status', '')).upper() == status)
                     and not self.has_power(r)
                     and not ignored_castle(r.get('name'), r.get('x'), r.get('y'))]
         targets = []
@@ -1290,7 +1296,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.11'
+APP_VERSION = '1.0.9.12'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

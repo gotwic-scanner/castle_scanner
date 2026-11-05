@@ -21,7 +21,7 @@ def _post(url, message, timeout=10):
     payload = json.dumps({'content': message, 'allowed_mentions': {'parse': []}}, ensure_ascii=False).encode('utf-8')
     for attempt in range(4):
         request = urllib.request.Request(url, data=payload, headers={
-            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.11'}, method='POST')
+            'Content-Type': 'application/json', 'User-Agent': 'GOTWiC-Scanner/1.0.9.12'}, method='POST')
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()
@@ -58,9 +58,9 @@ def send_kingdom_report(url, kingdom, castles, mode='unprotected', min_power_mil
         if not isinstance(c, dict) or ignored_castle(c.get('name', ''), c.get('x', 0), c.get('y', 0)):
             continue
         status = str(c.get('status') or '').upper()
-        if mode == 'unprotected' and status != 'UNPROTECTED' and not (allow_unknown and status == 'UNKNOWN'):
+        if mode == 'unprotected' and status not in ('UNPROTECTED', 'UNKNOWN'):
             continue
-        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED') and not (allow_unknown and status == 'UNKNOWN'):
+        if mode == 'all' and status not in ('PROTECTED', 'UNPROTECTED', 'UNKNOWN'):
             continue
         # Prefer raw integer power, falling back to the report's millions value.
         # Castles with unknown, invalid, or zero power must not be posted.

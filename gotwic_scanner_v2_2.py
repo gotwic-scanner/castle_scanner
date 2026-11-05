@@ -246,7 +246,7 @@ def main():
     p.add_argument('--db-password',default=os.getenv('GOTWIC_DB_PASSWORD',''))
     p.add_argument('--db-name',default=os.getenv('GOTWIC_DB_NAME') or 'scanner_results')
     p.add_argument('--mask',default='gotwic_kingdom542_production_mask.json',help='JSON list of allowed X/Y navigation points; use --mask none for unmasked scanning')
-    p.add_argument('-v','--verbose',action='store_true',help='Retrieve power for UNPROTECTED castles only; protected/unknown stay 0')
+    p.add_argument('-v','--verbose',action='store_true',help='Retrieve power for UNPROTECTED and Fervor (UNKNOWN) castles; protected stay 0')
     p.add_argument('--power-timing-profile', choices=tuple(PROFILES), default=DEFAULT_PROFILE)
     p.add_argument('--no-db',action='store_true',help='Diagnostic scan without database import')
     a=p.parse_args()
@@ -425,9 +425,9 @@ def main():
         power_results={'enabled':a.verbose,'eligible':0,'skipped':0,'attempted':0,'matched':0,'unavailable':0,
                        'timeout_seconds':POWER_TIMEOUT,'errors':[]}
         if a.verbose and rows:
-            power_results['eligible']=sum(row[6]=='UNPROTECTED' and not ignored_castle(row[4], row[1], row[2]) for row in rows)
+            power_results['eligible']=sum(row[6] in ('UNPROTECTED', 'UNKNOWN') and not ignored_castle(row[4], row[1], row[2]) for row in rows)
             power_results['skipped']=len(rows)-power_results['eligible']
-            print(f'Power lookup: {power_results["eligible"]} UNPROTECTED castles ({power_results["skipped"]} skipped) | {a.power_timing_profile} timing profile',flush=True)
+            print(f'Power lookup: {power_results["eligible"]} UNPROTECTED/Fervor castles ({power_results["skipped"]} skipped) | {a.power_timing_profile} timing profile',flush=True)
             viewport=evaluate('(()=>({w:innerWidth,h:innerHeight}))()',cid)
             dismiss_x=round(viewport['w']*.80);dismiss_y=round(viewport['h']*.75)
             def dismiss_click():
@@ -438,7 +438,7 @@ def main():
             powered=[]
             for index,row in enumerate(rows):
                 name=row[4]; mid=row[3]; power=0
-                if row[6]!='UNPROTECTED' or ignored_castle(name, row[1], row[2]):
+                if row[6] not in ('UNPROTECTED', 'UNKNOWN') or ignored_castle(name, row[1], row[2]):
                     powered.append(row)
                     continue
                 power_results['attempted']+=1

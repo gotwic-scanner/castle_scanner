@@ -333,3 +333,27 @@ Settings > Discord Webhook Reporting now includes a persistent **Minimum castle 
 - MySQL/MariaDB: restore startup connectivity check and automatic post-scan imports when available. SQL failures leave completed CSV scans usable; history inserts retain the existing schema and timestamps.
 - Desktop Manager title displays the application version. The Kingdom field remembers the last *successfully completed* kingdom (including batch scans); default is 1. Failed/cancelled scans do not update it.
 - Website upload, hosting and licensing remain disabled/deferred. Existing GUI, CSV, decoder, power and updater components are retained.
+
+
+## Release v1.0.9.12 (2026-11-05)
+
+- UNKNOWN status is displayed as **Fervor** in the GUI, while retaining the original UNKNOWN status in CSV and protocol records for compatibility. This is a label, not proof of Fervor.
+- Get Power UNPROTECTED includes UNKNOWN castles with missing power. The separate UNKNOWN button is relabeled Fervor.
+- Verbose scan-time power checks include UNKNOWN castles.
+- Discord reporting treats UNKNOWN as UNPROTECTED for eligibility, respecting minimum power.
+
+
+## Release v1.0.9.12 (2026-11-05)
+
+- UNKNOWN status is displayed as **Fervor** in the GUI, while retaining the original UNKNOWN status in CSV and protocol records for compatibility. This is a label, not proof of Fervor.
+- Get Power UNPROTECTED includes UNKNOWN castles with missing power. The separate UNKNOWN button is relabeled Fervor.
+- Verbose scan-time power checks include UNKNOWN castles.
+- Discord reporting treats UNKNOWN as UNPROTECTED for eligibility, respecting minimum power.
+
+
+## Release v1.0.9.12 (2026-11-05)
+
+- UNKNOWN status is displayed as **Fervor** in the GUI, while retaining the original UNKNOWN status in CSV and protocol records for compatibility. This is a label, not proof of Fervor.
+- Get Power UNPROTECTED includes UNKNOWN castles with missing power. The separate UNKNOWN button is relabeled Fervor.
+- Verbose scan-time power checks include UNKNOWN castles.
+- Discord reporting treats UNKNOWN as UNPROTECTED for eligibility, respecting minimum power.
