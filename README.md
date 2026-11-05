@@ -323,3 +323,13 @@ Settings > Discord Webhook Reporting now includes a persistent **Minimum castle 
 - Default Current Scan and Castle Explorer sort by Power (M), highest first. Unknown power appears last; users may manually change sorting.
 - Configurable scanner buffer maximum increased to 48, default 24; selected value persists in settings.
 - Current Scan Display dropdown adds UNKNOWN (Potential Fervor), with a nearby one-click UNKNOWN toggle. UNKNOWN is not proof of Fervor.
+
+
+## Release v1.0.9.11 (2026-11-05)
+
+- WASM build `2.82.0_ab18aead67`: verified map-navigation table slot `62896`, function `117256` (five i32 parameters); verified kingdom selector slot `62893`, function `117283` (i64 + five i32 parameters). Both calls have function-name and arity checks.
+- Scanner statistics: Untruced displays the independent UNKNOWN count in parentheses for every kingdom and TOTAL, e.g. `20 (3)`; UNKNOWN is not included in Untruced.
+- Discord: removed the `(Manual Power)` and `— Unprotected + UNKNOWN` heading decorations without changing which castles qualify.
+- MySQL/MariaDB: restore startup connectivity check and automatic post-scan imports when available. SQL failures leave completed CSV scans usable; history inserts retain the existing schema and timestamps.
+- Desktop Manager title displays the application version. The Kingdom field remembers the last *successfully completed* kingdom (including batch scans); default is 1. Failed/cancelled scans do not update it.
+- Website upload, hosting and licensing remain disabled/deferred. Existing GUI, CSV, decoder, power and updater components are retained.

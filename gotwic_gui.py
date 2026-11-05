@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.10
+# GOTWiC Scanner GUI package release: 1.0.9.11
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -119,7 +119,7 @@ class TruceItem(QTableWidgetItem):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('GOTWiC Scanner — Desktop Manager')
+        self.setWindowTitle(f'GOTWiC Scanner — Desktop Manager — v{APP_VERSION}')
         self.resize(1150, 780)
         self.proc = None
         self.batch_kingdoms = []
@@ -160,9 +160,7 @@ class MainWindow(QMainWindow):
             self.console.append('CSV migration warning: ' + error)
         self.cleanup_expired_csv()
         self.refresh_data()
-        # SQL is temporarily disabled; do not probe the database at startup.
-        self.enable_sql.setChecked(False)
-        self.enable_sql.setEnabled(False)
+        self.check_sql_on_startup()
 
     def check_sql_on_startup(self):
         """Check actual database access without blocking the GUI startup."""
@@ -193,7 +191,9 @@ class MainWindow(QMainWindow):
     def build_scanner(self):
         tab = QWidget(); layout = QVBoxLayout(tab)
         controls = QGroupBox('Scan configuration'); form = QGridLayout(controls)
-        self.kingdom = QSpinBox(); self.kingdom.setRange(1,999999); self.kingdom.setValue(542)
+        self.kingdom = QSpinBox(); self.kingdom.setRange(1,999999)
+        last_kingdom = QSettings('GOTWiC', 'Scanner').value('last_successful_kingdom', 1, type=int)
+        self.kingdom.setValue(last_kingdom if 1 <= last_kingdom <= 999999 else 1)
         self.kingdom_range = QLineEdit(); self.kingdom_range.setPlaceholderText('e.g. 542 - 550 or 550, 542, 547 (max 3)')
         self.mode = QComboBox(); self.mode.addItems(['auto','manual'])
         self.show_filter = QComboBox(); self.show_filter.addItems(['ALL','OPEN'])
@@ -205,10 +205,10 @@ class MainWindow(QMainWindow):
         self.minimum_power.currentIndexChanged.connect(self.refresh_live_table)
         self.buffer = QSpinBox(); self.buffer.setRange(1,48); self.buffer.setValue(24)
         self.verbose_power = QCheckBox('Castle power (verbose) — slower scan')
-        self.enable_sql = QCheckBox('SQL import (temporarily disabled)')
+        self.enable_sql = QCheckBox('SQL import (automatic after scan)')
         self.enable_sql.setChecked(False)
         self.enable_sql.setEnabled(False)
-        self.enable_sql.setToolTip('SQL import is disabled in v1.0.9.5')
+        self.enable_sql.setToolTip('SQL import activates automatically when the database is reachable.')
         form.addWidget(QLabel('Kingdom'),0,0); form.addWidget(self.kingdom,0,1)
         form.addWidget(QLabel('Batch kingdoms'),0,2); form.addWidget(self.kingdom_range,0,3)
         form.addWidget(QLabel('Mode'),0,4); form.addWidget(self.mode,0,5)
@@ -341,7 +341,7 @@ class MainWindow(QMainWindow):
         self.csv_retention_days.setSpecialValueText('0 — keep indefinitely')
         form.addRow('Auto CSV cleanup (days)', self.csv_retention_days)
         layout.addWidget(QLabel('0 = keep CSV files indefinitely; cleanup runs at startup and after scans.'))
-        layout.addWidget(QLabel('SQL import is temporarily disabled; CSV storage remains active.'))
+        layout.addWidget(QLabel('SQL import is enabled when MySQL is reachable; CSV storage is always active.'))
         web_group = QGroupBox('Website CSV upload (optional)')
         web_form = QFormLayout(web_group)
         self.web_enabled = QCheckBox('Automatically upload CSV after scan (temporarily disabled)')
@@ -575,20 +575,23 @@ class MainWindow(QMainWindow):
         grouped = {}
         for record in eligible:
             kingdom = str(record.get('kingdom', '')).strip() or '?'
-            counts = grouped.setdefault(kingdom, [0, 0, 0])
+            counts = grouped.setdefault(kingdom, [0, 0, 0, 0])
             status = str(record.get('status', '')).upper()
             if status == 'UNPROTECTED':
                 counts[0] += 1
             elif status == 'PROTECTED':
                 counts[1] += 1
+            elif status == 'UNKNOWN':
+                counts[3] += 1
             counts[2] += 1  # UNKNOWN castles still contribute to total.
         ordered = sorted(grouped, key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else k))
-        totals = [sum(grouped[k][i] for k in ordered) for i in range(3)]
+        totals = [sum(grouped[k][i] for k in ordered) for i in range(4)]
         self.stats_table.setRowCount(len(ordered) + 1)
         for row, kingdom in enumerate(ordered + ['TOTAL']):
             values = grouped[kingdom] if kingdom != 'TOTAL' else totals
-            for col, value in enumerate([kingdom, *values]):
-                item = QTableWidgetItem(str(value) if col == 0 else f'{value:,}')
+            display = [kingdom, f'{values[0]:,} ({values[3]:,})', f'{values[1]:,}', f'{values[2]:,}']
+            for col, value in enumerate(display):
+                item = QTableWidgetItem(str(value))
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | (Qt.AlignmentFlag.AlignLeft if col == 0 else Qt.AlignmentFlag.AlignRight))
                 if col == 1:
@@ -733,7 +736,7 @@ class MainWindow(QMainWindow):
         self.scan_config = {
             'mode': self.mode.currentText(), 'port': self.port.value(),
             'show': self.show_filter.currentText(), 'buffer': self.buffer.value(),
-            'mask': str(maskfile), 'sql': False,
+            'mask': str(maskfile), 'sql': self.enable_sql.isChecked(),
             'verbose': self.verbose_power.isChecked(),
             'timing': self.power_timing_profile.currentData()
         }
@@ -838,7 +841,12 @@ class MainWindow(QMainWindow):
                 self.console.append(note)
                 continue
             if kind == 'sql_check':
-                continue  # SQL is disabled.
+                connected, note = value
+                self.enable_sql.setChecked(connected)
+                self.enable_sql.setEnabled(connected)
+                self.enable_sql.setToolTip(note)
+                self.console.append(note)
+                continue
             if kind=='upload_ok':
                 self.upload_running = False
                 self.web_retry.setEnabled(True)
@@ -899,6 +907,9 @@ class MainWindow(QMainWindow):
                 if successful and completed_csv is not None and completed_csv.is_file():
                     self.active_scan_csv = completed_csv
                     self.batch_completed += 1
+                    # Persist only a genuinely completed kingdom, including the last batch member.
+                    self.web_settings.setValue('last_successful_kingdom', int(self.current_scan_kingdom))
+                    self.kingdom.setValue(int(self.current_scan_kingdom))
                     self.cleanup_expired_csv()
                     self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
                     lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
@@ -1279,7 +1290,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.10'
+APP_VERSION = '1.0.9.11'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
