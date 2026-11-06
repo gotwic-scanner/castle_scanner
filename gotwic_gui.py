@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.13
+# GOTWiC Scanner GUI package release: 1.0.9.14
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -1296,7 +1296,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.13'
+APP_VERSION = '1.0.9.14'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
@@ -1425,6 +1425,9 @@ if __name__=='__main__':
     app=QApplication(sys.argv)
     if check_for_gui_update():
         sys.exit(0)
+    from license_client import authorize
+    if not authorize():
+        sys.exit(1)
     parser=argparse.ArgumentParser(add_help=False)
     parser.add_argument('-v','--verbose',action='store_true')
     cli_args,_=parser.parse_known_args(sys.argv[1:])

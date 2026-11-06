@@ -364,3 +364,14 @@ Settings > Discord Webhook Reporting now includes a persistent **Minimum castle 
 - Discord reports exclude castles with underlying status UNKNOWN or FERVOR in all report modes, including automatic scan and manual power retrieval reports.
 - Discord report heading uses **Master Of Merits — Kingdom X**.
 - GUI Fervor power retrieval remains unchanged.
+
+
+## Release v1.0.9.14 (2026-11-06)
+
+- Online-only HTTPS license validation after the application update check and before opening the GUI.
+- First startup prompts for a GOTWiC license key; subsequent startups read the locally stored key from `%LOCALAPPDATA%\GOTWiC-Scanner\license.json`.
+- Windows MachineGuid is hashed with SHA-256 and a GOTWiC-specific namespace before transmission as the 64-character device identifier. The raw MachineGuid is not sent.
+- A successful first validation binds the license to that device on the server. Changing computers requires a new license.
+- Invalid, revoked, expired and different-device licenses prevent startup. Network/server failures offer Retry or Exit, without offline grace.
+- Existing scanner, GUI, database, Discord and multi-file updater behavior is retained.
+- License administration remains on the server; the desktop application does not connect to the licensing database.
