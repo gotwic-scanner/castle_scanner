@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9.14",
+  "version": "1.0.9.15",
   "files": [
     {
       "path": "CREATE_SHORTCUT.ps1",
@@ -13,13 +13,13 @@
     },
     {
       "path": "GUI_README.md",
-      "size": 25735,
-      "sha256": "c288413147775a05a6ff7bb68352de1a341736d4d5e883481ec9816f3313c8b9"
+      "size": 27264,
+      "sha256": "54b875f42214cc34d892339b8df9dad68556724615f51cfaa8388e11166d2405"
     },
     {
       "path": "README.md",
-      "size": 25735,
-      "sha256": "c288413147775a05a6ff7bb68352de1a341736d4d5e883481ec9816f3313c8b9"
+      "size": 27264,
+      "sha256": "54b875f42214cc34d892339b8df9dad68556724615f51cfaa8388e11166d2405"
     },
     {
       "path": "RUN_GUI.bat",
@@ -29,7 +29,7 @@
     {
       "path": "VERSION",
       "size": 9,
-      "sha256": "d49faa14b0838b1135c2d0369c459d947464dd4ce2b934971d0e0a8dbe8e17a1"
+      "sha256": "d54c7eb563999bf6d9b39045ef5bc60b893018579f9f245c92cf2d4ed5cc82b2"
     },
     {
       "path": "castle_power_detector.py",
@@ -49,7 +49,7 @@
     {
       "path": "discord_webhook.py",
       "size": 4538,
-      "sha256": "54081248452ec1692b4bf615747f7367e4082002d4173fa62bcd31a854d89491"
+      "sha256": "a8b4d9569a17e199c99dd1563e585e70d2deffb8fde58d4b0ccd64b7ec332847"
     },
     {
       "path": "extract_coordinates_from_protocol.py",
@@ -58,8 +58,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 75574,
-      "sha256": "8f3f30162346adc2476ed6d836175152c6d44c632f85784b8c477b90a27703b2"
+      "size": 75672,
+      "sha256": "ebc7f845c3f4723fc0de1d93c332baed006ac44a44138086c1ab6385cc286cc8"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -74,7 +74,7 @@
     {
       "path": "license_client.py",
       "size": 6206,
-      "sha256": "f753067cd4cc6570b35c82b318cf227ad0f794d8b260da4a8f036c3637b3e292"
+      "sha256": "eeaf8046b71b494a568714b5f66865e75431e37e211df27348d9504fea9b6ea0"
     },
     {
       "path": "live_truce_scanner_v5.py",
@@ -98,8 +98,8 @@
     },
     {
       "path": "requirements_gui.txt",
-      "size": 67,
-      "sha256": "7c5d1acda8daf1bd65abaeea390a9dc96590b41db87a9b1035c91104276f66d4"
+      "size": 85,
+      "sha256": "d6aefcb763ac9ae9f1144a6d4556c5b92e8c41e65c7787b787ebfb0cbdbfa62a"
     },
     {
       "path": "startup.py",
@@ -113,8 +113,8 @@
     },
     {
       "path": "web_upload.py",
-      "size": 2270,
-      "sha256": "b8f5a7f382eb1c0f2a58bd52ada067ee914c1325fd8cb5eef5337ce7e9a7a412"
+      "size": 2909,
+      "sha256": "758a075c3792b94e9d9adc22a50fefae0e6a1de872b82e4c384318530fb2eb72"
     }
   ]
 }

@@ -1,3 +1,20 @@
+# GOTWiC Scanner v1.0.9.15 — Automatic Website CSV Upload
+
+Built on the complete v1.0.9.14 release, preserving v1.0.9.13 Discord filtering/heading,
+v1.0.9.14 online license validation, and all existing scanner, SQL, GUI and updater features.
+
+- Settings contains one website-upload control: **Enable CSV upload** (checked by default on fresh installations and upgrades). The choice persists when changed.
+- Each successfully completed CSV scan is queued for automatic website import, including every completed kingdom in a batch. Failed/cancelled scans are not uploaded.
+- Uses `https://scannerapp.serveminecraft.net/index.php?page=upload` with a GET for the hidden CSRF token and a multipart POST on the same `requests.Session()` (PHP session cookie preserved).
+- POST fields: `action=upload`, `token=<retrieved>`, `async=1`, `csv_file[]=<CSV>`; success requires JSON `results[0].success == true` and matching original filename.
+- Uploads are processed sequentially in a background worker; the GUI console reports success/failure. No upload retry button or upload-status field is shown in Settings.
+- Local CSV snapshots are retained if website import fails. The GUI waits for queued uploads before closing.
+- Adds `requests>=2.31,<3` to the startup dependency check.
+- No website PHP, MySQL schema, scanner decoder, navigation, Discord eligibility, or licensing behavior changes.
+- The standalone website import was verified separately (215 rows); live end-to-end testing of this integrated release remains to be done.
+
+---
+
 # v1.0.9.10 — Manual Power Discord Reporting
 
 - Successful manual single-castle and bulk power retrievals also trigger Discord reporting when enabled.

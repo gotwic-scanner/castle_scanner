@@ -61,7 +61,7 @@ def validate(key, device_id):
     payload = json.dumps({'license_key': key, 'device_id': device_id}).encode('utf-8')
     request = urllib.request.Request(API_URL, data=payload,
         headers={'Content-Type': 'application/json', 'Accept': 'application/json',
-                 'User-Agent': 'GOTWiC-Scanner-License/1.0.9.14'}, method='POST')
+                 'User-Agent': 'GOTWiC-Scanner-License/1.0.9.15'}, method='POST')
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             raw = response.read(4097)

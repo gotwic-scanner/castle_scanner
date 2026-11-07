@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.14
+# GOTWiC Scanner GUI package release: 1.0.9.15
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -132,7 +132,9 @@ class MainWindow(QMainWindow):
         self.active_scan_csv = None  # Exact CSV emitted by the latest completed GUI scan.
         self.pending_scan_csv = None
         self.live_results = []
-        self.upload_running = False
+        self.upload_pending = 0
+        self.upload_queue = queue.Queue()
+        self.upload_worker = None
         self.upload_last_csv = None
         self.power_proc = None
         self.power_target = None
@@ -342,16 +344,9 @@ class MainWindow(QMainWindow):
         form.addRow('Auto CSV cleanup (days)', self.csv_retention_days)
         layout.addWidget(QLabel('0 = keep CSV files indefinitely; cleanup runs at startup and after scans.'))
         layout.addWidget(QLabel('SQL import is enabled when MySQL is reachable; CSV storage is always active.'))
-        web_group = QGroupBox('Website CSV upload (optional)')
-        web_form = QFormLayout(web_group)
-        self.web_enabled = QCheckBox('Automatically upload CSV after scan (temporarily disabled)')
-        self.web_retry = QPushButton('Upload / retry latest CSV')
-        self.web_retry.clicked.connect(self.retry_web_upload)
-        self.web_status = QLabel('Web upload temporarily disabled')
-        web_form.addRow(self.web_enabled)
-        web_form.addRow(self.web_retry)
-        web_form.addRow('Upload status', self.web_status)
-        layout.addWidget(web_group)
+        # The only website-upload setting; enabled by default on upgrade and fresh install.
+        self.web_enabled = QCheckBox('Enable CSV upload')
+        layout.addWidget(self.web_enabled)
         self.web_settings = QSettings('GOTWiC', 'Scanner')
         self.buffer.setValue(max(1, min(48, self.web_settings.value('scan_buffer', 24, type=int))))
         self.buffer.valueChanged.connect(lambda value: self.web_settings.setValue('scan_buffer', value))
@@ -362,10 +357,10 @@ class MainWindow(QMainWindow):
             lambda _index: self.web_settings.setValue('power_timing_profile', self.power_timing_profile.currentData()))
         self.csv_retention_days.setValue(self.web_settings.value('csv_retention_days', 14, type=int))
         self.csv_retention_days.valueChanged.connect(lambda days: self.web_settings.setValue('csv_retention_days', days))
-        self.web_enabled.setChecked(False)
-        self.web_enabled.setEnabled(False)
-        self.web_retry.setEnabled(False)
-        self.web_retry.setToolTip('Web upload is disabled in v1.0.9.5')
+        # New setting key intentionally enables uploads by default for upgrades from
+        # releases where the old checkbox was forcibly disabled.
+        self.web_enabled.setChecked(self.web_settings.value('web_upload_enabled_v10915', True, type=bool))
+        self.web_enabled.toggled.connect(self.save_web_settings)
 
         discord_group = QGroupBox('Discord Webhook Reporting')
         discord_form = QFormLayout(discord_group)
@@ -446,35 +441,33 @@ class MainWindow(QMainWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def save_web_settings(self):
-        self.web_settings.setValue('web_enabled', self.web_enabled.isChecked())
+        self.web_settings.setValue('web_upload_enabled_v10915', self.web_enabled.isChecked())
 
-    def retry_web_upload(self):
-        return  # Web upload temporarily disabled.
-        path = self.active_scan_csv or self.upload_last_csv
-        if path is None:
-            self.web_status.setText('No completed CSV available')
+    def start_web_upload(self, path):
+        """Queue each completed CSV; a single worker handles rapid batch scans."""
+        if not self.web_enabled.isChecked():
             return
-        self.start_web_upload(path, manual=True)
+        csv_path = Path(path)
+        if not csv_path.is_file():
+            self.console.append(f'CSV upload skipped: file missing ({csv_path.name})')
+            return
+        self.upload_queue.put(csv_path)
+        self.upload_pending += 1
+        self.console.append(f'CSV upload queued: {csv_path.name}')
+        if self.upload_worker is None or not self.upload_worker.is_alive():
+            self.upload_worker = threading.Thread(target=self._upload_worker, daemon=True)
+            self.upload_worker.start()
 
-    def start_web_upload(self, path, manual=False):
-        return  # Web upload temporarily disabled.
-        if self.upload_running:
-            self.web_status.setText('Upload already in progress')
-            return
-        if not manual and not self.web_enabled.isChecked():
-            return
-        url = UPLOAD_ENDPOINT
-        self.upload_running = True
-        self.upload_last_csv = Path(path)
-        self.web_retry.setEnabled(False)
-        self.web_status.setText('Uploading CSV...')
-        def worker():
+    def _upload_worker(self):
+        while True:
+            csv_path = self.upload_queue.get()
             try:
-                result = upload_csv(path, url)
-                self.messages.put(('upload_ok', result))
+                result = upload_csv(csv_path, UPLOAD_ENDPOINT)
+                self.messages.put(('upload_ok', (csv_path.name, result)))
             except Exception as exc:
-                self.messages.put(('upload_error', str(exc)))
-        threading.Thread(target=worker, daemon=True).start()
+                self.messages.put(('upload_error', (csv_path.name, str(exc))))
+            finally:
+                self.upload_queue.task_done()
 
     @staticmethod
     def make_table(headers):
@@ -853,16 +846,15 @@ class MainWindow(QMainWindow):
                 self.enable_sql.setToolTip(note)
                 self.console.append(note)
                 continue
-            if kind=='upload_ok':
-                self.upload_running = False
-                self.web_retry.setEnabled(True)
-                self.web_status.setText('Already imported' if value.get('duplicate') else f"Uploaded {value.get('inserted_rows', 0)} rows")
+            if kind == 'upload_ok':
+                self.upload_pending = max(0, self.upload_pending - 1)
+                filename, result = value
+                self.console.append(f'CSV upload succeeded: {filename} — {result.get("message", "Database import confirmed")}')
                 continue
-            if kind=='upload_error':
-                self.upload_running = False
-                self.web_retry.setEnabled(True)
-                self.web_status.setText('Upload failed — retry available')
-                self.console.append('Web upload: ' + value)
+            if kind == 'upload_error':
+                self.upload_pending = max(0, self.upload_pending - 1)
+                filename, error = value
+                self.console.append(f'CSV upload failed: {filename} — {error}; local CSV retained')
                 continue
             if kind=='line':
                 clean_line = re.sub(r'\x1b\[[0-9;]*m', '', value).strip()
@@ -916,6 +908,7 @@ class MainWindow(QMainWindow):
                     # Persist only a genuinely completed kingdom, including the last batch member.
                     self.web_settings.setValue('last_successful_kingdom', int(self.current_scan_kingdom))
                     self.kingdom.setValue(int(self.current_scan_kingdom))
+                    self.start_web_upload(completed_csv)
                     self.cleanup_expired_csv()
                     self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
                     lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
@@ -1289,6 +1282,10 @@ class MainWindow(QMainWindow):
                 self.console.append(f'Bulk power failed ({self.bulk_power_done + 1}/{self.bulk_power_total}): {self.power_target["name"]} — {exc}')
 
     def closeEvent(self,event):
+        if self.upload_pending:
+            self.status.setText(f'Waiting for {self.upload_pending} CSV upload(s) to finish before closing')
+            event.ignore()
+            return
         if (self.proc is not None and self.proc.poll() is None) or self.power_proc is not None or self.bulk_power_status is not None:
             QMessageBox.warning(self,'Scanner active','Finish or stop the scanner before closing the GUI.')
             event.ignore();return
@@ -1296,7 +1293,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.14'
+APP_VERSION = '1.0.9.15'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
