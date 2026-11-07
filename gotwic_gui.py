@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.15
+# GOTWiC Scanner GUI package release: 1.0.9.16
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         self.bulk_power_total = 0
         self.bulk_power_done = 0
         self.bulk_power_failed = 0
+        self.bulk_power_saved = 0
+        self.bulk_power_csv = None
         self.bulk_power_status = None
         self.bulk_worker = None
         self.manual_power_reports = []
@@ -444,7 +446,7 @@ class MainWindow(QMainWindow):
         self.web_settings.setValue('web_upload_enabled_v10915', self.web_enabled.isChecked())
 
     def start_web_upload(self, path):
-        """Queue each completed CSV; a single worker handles rapid batch scans."""
+        """Queue a snapshot only after a power lookup saved its updated values."""
         if not self.web_enabled.isChecked():
             return
         csv_path = Path(path)
@@ -908,7 +910,8 @@ class MainWindow(QMainWindow):
                     # Persist only a genuinely completed kingdom, including the last batch member.
                     self.web_settings.setValue('last_successful_kingdom', int(self.current_scan_kingdom))
                     self.kingdom.setValue(int(self.current_scan_kingdom))
-                    self.start_web_upload(completed_csv)
+                    # v1.0.9.16: scan completion does not trigger a website upload.
+                    # Upload only after an individual or bulk power lookup saves power.
                     self.cleanup_expired_csv()
                     self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
                     lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
@@ -1070,6 +1073,8 @@ class MainWindow(QMainWindow):
         self.bulk_power_total = len(targets)
         self.bulk_power_done = 0
         self.bulk_power_failed = 0
+        self.bulk_power_saved = 0
+        self.bulk_power_csv = Path(snapshot)
         self.bulk_protected_btn.setEnabled(False)
         self.bulk_unprotected_btn.setEnabled(False)
         self.bulk_unknown_btn.setEnabled(False)
@@ -1116,6 +1121,11 @@ class MainWindow(QMainWindow):
     def finish_bulk_power(self):
         self.flush_manual_power_reports()
         status = self.bulk_power_status
+        # All per-castle CSV writes have completed before queuing the upload.
+        saved = self.bulk_power_saved
+        snapshot = self.bulk_power_csv
+        self.bulk_power_saved = 0
+        self.bulk_power_csv = None
         self.bulk_power_status = None
         self.bulk_worker = None
         self.bulk_protected_btn.setEnabled(True)
@@ -1125,6 +1135,8 @@ class MainWindow(QMainWindow):
                    f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
         self.console.append(message)
         self.status.setText(message)
+        if saved > 0 and snapshot is not None:
+            self.start_web_upload(snapshot)
 
     def poll_bulk_power(self):
         if self.bulk_worker is None:
@@ -1167,16 +1179,7 @@ class MainWindow(QMainWindow):
         if self.bulk_power_status is None:
             return
         if not self.bulk_power_queue:
-            self.flush_manual_power_reports()
-            status = self.bulk_power_status
-            self.bulk_power_status = None
-            self.bulk_protected_btn.setEnabled(True)
-            self.bulk_unprotected_btn.setEnabled(True)
-            self.bulk_unknown_btn.setEnabled(True)
-            message = (f'Bulk {status} complete: {self.bulk_power_done - self.bulk_power_failed} saved, '
-                       f'{self.bulk_power_failed} failed, {self.bulk_power_total} attempted')
-            self.console.append(message)
-            self.status.setText(message)
+            self.finish_bulk_power()
             return
         target = self.bulk_power_queue.pop(0)
         self.status.setText(f'Bulk {self.bulk_power_status}: '
@@ -1267,9 +1270,12 @@ class MainWindow(QMainWindow):
                              'status': self.lookup_castle_status(target),
                              'power_millions': float(value)}
             if self.bulk_power_status is not None:
+                self.bulk_power_saved += 1
                 self.manual_power_reports.append(report_castle)
             else:
                 self.queue_discord_report(target['kingdom'], [report_castle], manual=True)
+                # The atomic CSV save has finished; upload the updated snapshot.
+                self.start_web_upload(target['csv'])
             self.status.setText(f"Power saved: {target['name']} — {value:.3f} M")
             if self.bulk_power_status is not None:
                 self.console.append(f'Bulk power {self.bulk_power_done + 1}/{self.bulk_power_total}: {target["name"]} — {value:.3f} M')
@@ -1293,7 +1299,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.15'
+APP_VERSION = '1.0.9.16'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

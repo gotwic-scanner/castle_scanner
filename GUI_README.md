@@ -1,3 +1,35 @@
+# GOTWiC Scanner v1.0.9.16 — CSV Upload After Power Retrieval
+
+Built on the complete v1.0.9.15 release, retaining v1.0.9.13 Discord,
+v1.0.9.14 licensing, verified navigation, database, GUI and updater features.
+
+- **No website CSV upload at scan completion**, including batch-kingdom scans.
+- After a successful **individual** power retrieval, the updated CSV is saved
+  atomically and then queued for website upload.
+- After **bulk** power retrieval, wait for the entire bulk operation to finish;
+  queue **one** upload of that snapshot, containing all successfully saved
+  power values. No upload if zero values were saved.
+- Failed power retrievals do not trigger an upload. A partially successful
+  bulk retrieval uploads the values that were successfully saved.
+- The existing website import protocol, sequential background upload worker,
+  console reporting and local CSV retention remain unchanged.
+- Settings still contains only **Enable CSV upload**, checked by default;
+  the user's existing on/off preference is preserved.
+- Power is persisted in the CSV's `status_source` field; no CSV schema changes.
+- The website importer may apply its own duplicate-snapshot rules to repeat
+  uploads of the same CSV after later power lookups.
+- No changes to PHP, MySQL schema, WASM navigation, Discord report rules,
+  licensing, or automatic updater behavior.
+
+## Installation
+
+Extract the complete release into the existing application directory and
+launch `RUN_GUI.bat`. No website configuration changes are required.
+
+---
+
+## Historical release notes
+
 # GOTWiC Scanner v1.0.9.15 — Automatic Website CSV Upload
 
 Built on the complete v1.0.9.14 release, preserving v1.0.9.13 Discord filtering/heading,

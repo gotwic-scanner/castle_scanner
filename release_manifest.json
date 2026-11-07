@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9.15",
+  "version": "1.0.9.16",
   "files": [
     {
       "path": "CREATE_SHORTCUT.ps1",
@@ -13,13 +13,13 @@
     },
     {
       "path": "GUI_README.md",
-      "size": 27264,
-      "sha256": "54b875f42214cc34d892339b8df9dad68556724615f51cfaa8388e11166d2405"
+      "size": 28822,
+      "sha256": "16d6ac22764666d4e4be40843ade53887c36e72a9348ed072c3c4b11cc15a523"
     },
     {
       "path": "README.md",
-      "size": 27264,
-      "sha256": "54b875f42214cc34d892339b8df9dad68556724615f51cfaa8388e11166d2405"
+      "size": 28822,
+      "sha256": "16d6ac22764666d4e4be40843ade53887c36e72a9348ed072c3c4b11cc15a523"
     },
     {
       "path": "RUN_GUI.bat",
@@ -29,7 +29,7 @@
     {
       "path": "VERSION",
       "size": 9,
-      "sha256": "d54c7eb563999bf6d9b39045ef5bc60b893018579f9f245c92cf2d4ed5cc82b2"
+      "sha256": "6efee10e6625d9f6d6e8a5a40983fd8b30218faf89f72f62038835ba4b47066a"
     },
     {
       "path": "castle_power_detector.py",
@@ -49,7 +49,7 @@
     {
       "path": "discord_webhook.py",
       "size": 4538,
-      "sha256": "a8b4d9569a17e199c99dd1563e585e70d2deffb8fde58d4b0ccd64b7ec332847"
+      "sha256": "3de30a8223468bb9eded94cb1cbca0149b46fed01d52bf34cb3650d739004c51"
     },
     {
       "path": "extract_coordinates_from_protocol.py",
@@ -58,8 +58,8 @@
     },
     {
       "path": "gotwic_gui.py",
-      "size": 75672,
-      "sha256": "ebc7f845c3f4723fc0de1d93c332baed006ac44a44138086c1ab6385cc286cc8"
+      "size": 75891,
+      "sha256": "e2a6f61db05e988173ab7d9fd4fff14778869035b6e5a1a423ec72c8d09cdffe"
     },
     {
       "path": "gotwic_kingdom542_production_mask.json",
@@ -74,7 +74,7 @@
     {
       "path": "license_client.py",
       "size": 6206,
-      "sha256": "eeaf8046b71b494a568714b5f66865e75431e37e211df27348d9504fea9b6ea0"
+      "sha256": "626af98c5feb000a6b38ff1c62da55057851838fb99926a19031e563032e0038"
     },
     {
       "path": "live_truce_scanner_v5.py",
