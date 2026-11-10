@@ -150,7 +150,7 @@ def detect_batch(port, profile=DEFAULT_PROFILE):
             try:
                 target = json.loads(line)
                 x, y, name = int(target['x']), int(target['y']), str(target['name'])
-                if not (0 <= x <= 650 and 0 <= y <= 710):
+                if not (0 <= x <= 700 and 0 <= y <= 700):
                     raise ValueError('Coordinates outside selectable map')
                 result = lookup(x, y, name)
             except Exception as exc:
@@ -180,7 +180,7 @@ def main():
         return detect_batch(args.port, args.power_timing_profile)
     if args.x is None or args.y is None or args.name is None:
         parser.error('--x, --y and --name are required without --batch')
-    if not (0<=args.x<=650 and 0<=args.y<=710):
+    if not (0<=args.x<=700 and 0<=args.y<=700):
         parser.error('Coordinates outside selectable map')
     try:
         result=detect(args.x,args.y,args.name,args.port,args.power_timing_profile,args.keep_open,args.kingdom)

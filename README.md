@@ -1,3 +1,9 @@
+# v1.0.9.18 — selectable coordinate bounds
+
+Power lookup validation now accepts X and Y coordinates from 0 through 700 inclusive, in both single and batch modes and in the GUI bulk-power queue. The internal 720 map-ID stride and existing scan grid/mask are unchanged. Retains v1.0.9.17 island points and silent website uploads.
+
+---
+
 # GOTWiC Scanner v1.0.9.17 — Island coverage and silent uploads
 
 Based on the user-supplied stable v1.0.9.16 release. Automatic scanning now includes three explicit island navigation points (680,623), (670,629), (664,634) in addition to the existing grid mask. CSV website uploads continue only after successful power retrieval saves values, with one bulk upload at completion, and no upload-related GUI console or status notifications. The Enable CSV upload checkbox remains enabled by default. All other features are preserved.

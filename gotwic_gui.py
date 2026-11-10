@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.17
+# GOTWiC Scanner GUI package release: 1.0.9.18
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -1050,7 +1050,7 @@ class MainWindow(QMainWindow):
             try:
                 x, y = int(r['x']), int(r['y'])
                 kingdom = int(r['kingdom'])
-                if not (0 <= x <= 650 and 0 <= y <= 710):
+                if not (0 <= x <= 700 and 0 <= y <= 700):
                     raise ValueError('Out-of-range coordinates')
                 targets.append({'kingdom': kingdom, 'x': x, 'y': y,
                     'name': str(r['name']), 'player_id': r.get('player_id', ''),
@@ -1292,7 +1292,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.17'
+APP_VERSION = '1.0.9.18'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
