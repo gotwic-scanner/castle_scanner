@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.18
+# GOTWiC Scanner GUI package release: 1.0.9.19
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -136,6 +136,8 @@ class MainWindow(QMainWindow):
         self.upload_queue = queue.Queue()
         self.upload_worker = None
         self.upload_last_csv = None
+        # Session-only alliance tags; never persisted to scanner output files.
+        self.gui_alliances = {}
         self.power_proc = None
         self.power_target = None
         self.bulk_power_queue = []
@@ -541,6 +543,15 @@ class MainWindow(QMainWindow):
     def sync_unknown_toggle(self, *_):
         self.unknown_toggle.setChecked(self.live_status_filter.currentIndex() == 3)
 
+    def remember_gui_alliance(self, kingdom, x, y, name, alliance):
+        tag = str(alliance or '').strip()
+        if tag and len(tag) <= 32 and not any(c in tag for c in '[]\\r\\n'):
+            self.gui_alliances[(str(kingdom), int(x), int(y), str(name))] = tag
+
+    def gui_player_name(self, kingdom, x, y, name):
+        tag = self.gui_alliances.get((str(kingdom), int(x), int(y), str(name)))
+        return f'[{tag}] {name}' if tag else str(name)
+
     def refresh_live_table(self, *_):
         status_filter = self.live_status_filter.currentText().split(" ", 1)[0].upper()
         if status_filter == "FERVOR":
@@ -563,10 +574,22 @@ class MainWindow(QMainWindow):
         visible = [r for r in eligible
                    if (status_filter == 'ALL' or r['status'].upper() == status_filter)
                    and meets_minimum(r)
-                   and (not player_term or player_term in str(r.get('name') or '').casefold())]
-        rows = [[r.get('kingdom', ''), r['name'], r['x'], r['y'], ('Fervor' if str(r['status']).upper() == 'UNKNOWN' else r['status']), r.get('power', 0)] for r in visible]
+                   and (not player_term or player_term in self.gui_player_name(
+                       r.get('kingdom'), r['x'], r['y'], r.get('name') or '').casefold())]
+        rows = [[r.get('kingdom', ''), self.gui_player_name(r.get('kingdom'), r['x'], r['y'], r['name']), r['x'], r['y'], ('Fervor' if str(r['status']).upper() == 'UNKNOWN' else r['status']), r.get('power', 0)] for r in visible]
         statuses = [r['status'] for r in visible]
         self.fill_table(self.live_table, rows, statuses)
+        for i, record in enumerate(visible):
+            # Sortable tables may reorder on insertion; find the exact row by coordinates.
+            for j in range(self.live_table.rowCount()):
+                try:
+                    if (str(self.live_table.item(j, 0).text()) == str(record.get('kingdom', ''))
+                        and int(self.live_table.item(j, 2).text()) == int(record['x'])
+                        and int(self.live_table.item(j, 3).text()) == int(record['y'])):
+                        self.live_table.item(j, 1).setData(Qt.ItemDataRole.UserRole, record['name'])
+                        break
+                except (AttributeError, ValueError):
+                    continue
         # Statistics reflect all eligible observations, independent of table filters.
         # Each kingdom gets its own row; the final row aggregates the entire batch.
         grouped = {}
@@ -698,13 +721,26 @@ class MainWindow(QMainWindow):
         source = self.explorer_rows()
         filtered = [(path, r) for path, r in source
                     if (status == 'ALL' or r['status'] == status)
-                    and (not term or any(term in str(v).casefold() for v in r.values()))]
+                    and (not term or any(term in str(v).casefold() for v in r.values())
+                         or term in self.gui_player_name(r.get('kingdom'), r.get('x'), r.get('y'),
+                                                         r.get('name', '')).casefold())]
         self.explorer_visible = filtered
         self.fill_table(self.castles_table,
-                        [[r.get('name', ''), r.get('x', ''), r.get('y', ''),
+                        [[self.gui_player_name(r.get('kingdom'), r.get('x'), r.get('y'), r.get('name', '')),
+                          r.get('x', ''), r.get('y', ''),
                           ('Fervor' if str(r.get('status', 'UNKNOWN')).upper() == 'UNKNOWN' else r.get('status', 'UNKNOWN')), r.get('status_source', ''),
                           r.get('last_seen_utc', '')] for _, r in filtered],
                         [str(r.get('status', 'UNKNOWN')).upper() for _, r in filtered])
+        for _path, record in filtered:
+            for j in range(self.castles_table.rowCount()):
+                try:
+                    if (int(self.castles_table.item(j, 1).text()) == int(record['x'])
+                        and int(self.castles_table.item(j, 2).text()) == int(record['y'])
+                        and self.castles_table.item(j, 5).text() == str(record['last_seen_utc'])):
+                        self.castles_table.item(j, 0).setData(Qt.ItemDataRole.UserRole, record['name'])
+                        break
+                except (AttributeError, ValueError):
+                    continue
         all_rows = [r for _, r in source]
         mode = self.explorer_history.currentText()
         self.summary.setText(
@@ -907,6 +943,12 @@ class MainWindow(QMainWindow):
                     # v1.0.9.16: scan completion does not trigger a website upload.
                     # Upload only after an individual or bulk power lookup saves power.
                     self.cleanup_expired_csv()
+                    for info in report.get('gui_alliances', []):
+                        try:
+                            self.remember_gui_alliance(info['kingdom'], info['x'], info['y'],
+                                                       info['name'], info.get('alliance'))
+                        except (KeyError, TypeError, ValueError):
+                            pass
                     self.refresh_data()  # Each completed kingdom appears immediately in Explorer.
                     lookup = {(str(c.get('name')), int(c.get('x')), int(c.get('y'))): c.get('power_millions', 0)
                               for c in report.get('castles', [])}
@@ -952,7 +994,7 @@ class MainWindow(QMainWindow):
             return
         try:
             kingdom = int(self.live_table.item(row, 0).text())
-            name = self.live_table.item(row, 1).text()
+            name = self.live_table.item(row, 1).data(Qt.ItemDataRole.UserRole) or self.live_table.item(row, 1).text()
             x = int(float(self.live_table.item(row, 2).text()))
             y = int(float(self.live_table.item(row, 3).text()))
         except (AttributeError, ValueError, TypeError):
@@ -1006,7 +1048,8 @@ class MainWindow(QMainWindow):
         except (TypeError, ValueError):
             QMessageBox.warning(self, 'Invalid castle', 'Selected castle has invalid coordinates.')
             return
-        name, stamp = cell(0), cell(5)
+        name = self.castles_table.item(row, 0).data(Qt.ItemDataRole.UserRole) or cell(0)
+        stamp = cell(5)
         # Sorting changes visible row indices; identify the original snapshot by
         # the displayed record and its scan timestamp, not the latest CSV path.
         matches = [(path, r) for path, r in self.explorer_rows()
@@ -1253,6 +1296,8 @@ class MainWindow(QMainWindow):
                 raise ValueError('Returned player name does not match the selected castle')
             from power_storage import save_power
             value = save_power(target, result['power_millions'])
+            self.remember_gui_alliance(target['kingdom'], target['x'], target['y'],
+                                       target['name'], result.get('alliance'))
             self.refresh_data()
             for castle in self.live_results:
                 if (castle['name'] == target['name'] and castle['x'] == target['x']
@@ -1292,7 +1337,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.18'
+APP_VERSION = '1.0.9.19'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15

@@ -140,8 +140,10 @@ def decode_power_20007(raw):
         payload = lz4.block.decompress(payload, uncompressed_size=length)
     player = _power_fields(_power_fields(_power_fields(payload)[20007])[1])
     name = player.get(16)
+    alliance = player.get(7)  # Verified in the 20007 profile captures.
     return {'player':name.decode('utf-8','replace') if isinstance(name,bytes) else None,
-            'power':player.get(3)}
+            'power':player.get(3),
+            'alliance':alliance.decode('utf-8','replace') if isinstance(alliance,bytes) else None}
 
 def axis(start,end,step):
     return list(range(start,end+1,step)) + ([] if (end-start)%step==0 else [end])
@@ -442,6 +444,7 @@ def main():
             collect(a.settle)
         if active['decoder_errors']:raise RuntimeError(f'Decoder errors: {active["decoder_errors"][:3]}')
         rows=snapshot_rows(tracker,a.kingdom,stamp)
+        gui_alliances = []
         power_results={'enabled':a.verbose,'eligible':0,'skipped':0,'attempted':0,'matched':0,'unavailable':0,
                        'timeout_seconds':POWER_TIMEOUT,'errors':[]}
         if a.verbose and rows:
@@ -481,6 +484,9 @@ def main():
                         if matching:
                             power=f'{matching["power"]/1_000_000:.3f}'
                             power_results['matched']+=1
+                            if matching.get('alliance'):
+                                gui_alliances.append({'kingdom':a.kingdom, 'x':row[1], 'y':row[2],
+                                                      'name':name, 'alliance':matching['alliance']})
                             break
                         poll()
                     if power==0:
@@ -509,6 +515,8 @@ def main():
             rows=powered
             active['power_visit']=None
             active['power_profiles'].clear()
+        # GUI-only metadata: never written into CSV, SQL, or Discord castle records.
+        report['gui_alliances']=gui_alliances
         report['power_lookup']=power_results
         report['castles']=[{'x':r[1],'y':r[2],'map_id':r[3],'name':r[4],'player_id':r[5],
                             'status':r[6],'power_millions':r[7],'observations':r[10]} for r in rows]

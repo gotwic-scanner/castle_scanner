@@ -105,6 +105,7 @@ def power_session(port, profile=DEFAULT_PROFILE, keep_open=False, kingdom=None):
                             type(profile.get('power')) is int and profile['power']>=0):
                             power=profile['power']
                             return {'success':True,'x':x,'y':y,'player':name,'power':power,
+                                    'alliance':profile.get('alliance'),
                                     'power_millions':f'{power/1000000:.3f}'}
                     poll()
                 raise TimeoutError(f"No matching castle profile received within {timing['timeout']:g} seconds")

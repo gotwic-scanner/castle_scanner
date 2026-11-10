@@ -1,3 +1,9 @@
+# v1.0.9.19 — GUI-only alliance tags
+
+When a player's 20007 profile is retrieved during power lookup, the GUI shows the verified alliance tag as `[TAG] Player Name`. Names without a known tag are unchanged. Original names are preserved for lookup matching, CSV, SQL, and Discord. Alliance tags are kept in GUI memory only, so they must be retrieved again in a later session.
+
+---
+
 # v1.0.9.18 — selectable coordinate bounds
 
 Power lookup validation now accepts X and Y coordinates from 0 through 700 inclusive, in both single and batch modes and in the GUI bulk-power queue. The internal 720 map-ID stride and existing scan grid/mask are unchanged. Retains v1.0.9.17 island points and silent website uploads.
