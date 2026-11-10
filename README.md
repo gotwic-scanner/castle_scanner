@@ -1,3 +1,9 @@
+# GOTWiC Scanner v1.0.9.17 — Island coverage and silent uploads
+
+Based on the user-supplied stable v1.0.9.16 release. Automatic scanning now includes three explicit island navigation points (680,623), (670,629), (664,634) in addition to the existing grid mask. CSV website uploads continue only after successful power retrieval saves values, with one bulk upload at completion, and no upload-related GUI console or status notifications. The Enable CSV upload checkbox remains enabled by default. All other features are preserved.
+
+---
+
 # GOTWiC Scanner v1.0.9.16 — CSV Upload After Power Retrieval
 
 Built on the complete v1.0.9.15 release, retaining v1.0.9.13 Discord,

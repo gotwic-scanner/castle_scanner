@@ -263,6 +263,7 @@ def main():
     if not 1<=a.buffer<=48:p.error('--buffer must be 1..48')
     if not a.no_db and not a.db_name:p.error('Provide --db-name or GOTWIC_DB_NAME, or use --no-db')
     mask_points=None
+    extra_points=[]
     if a.mode=='auto' and a.mask.lower()!='none':
         try:
             mask_doc=json.loads((Path(a.mask) if Path(a.mask).is_file() else Path(__file__).resolve().parent / a.mask).read_text(encoding='utf-8'))
@@ -270,6 +271,12 @@ def main():
                 p.error('Mask map/grid metadata does not match scanner')
             raw_points=mask_doc['points']
             mask_points={tuple(v) for v in raw_points}
+            raw_extra=mask_doc.get('extra_points', [])
+            extra_points=[tuple(v) for v in raw_extra]
+            if (len(set(extra_points))!=len(extra_points)
+                or any(len(v)!=2 or not all(isinstance(z,int) and 0<=z<=719 for z in v) for v in extra_points)
+                or set(extra_points).intersection(mask_points)):
+                p.error('Invalid, duplicate or overlapping extra scan points')
             if len(mask_points)!=len(raw_points) or not mask_points or any(len(v)!=2 or not all(isinstance(z,int) and 0<=z<=719 for z in v) for v in mask_points):
                 p.error('Invalid, empty or duplicate mask points')
         except (OSError,ValueError,KeyError,TypeError) as exc:
@@ -366,10 +373,23 @@ def main():
                 unknown=mask_points.difference(points)
                 if unknown:raise RuntimeError(f'Mask contains {len(unknown)} points outside the requested grid')
                 points=[point for point in points if point in mask_points]
-                if not points:raise RuntimeError('Mask excludes every navigation point')
+                # Off-grid island coordinates supplement the approved grid mask.
+                selected_extras=[point for point in extra_points
+                                 if a.x_min<=point[0]<=a.x_max and a.y_min<=point[1]<=a.y_max]
+                if any(point in points for point in selected_extras):
+                    raise RuntimeError('Extra scan point duplicates a grid navigation point')
+                if not points and not selected_extras:raise RuntimeError('Mask excludes every navigation point')
+                grid_retained=len(points)
+                points.extend(selected_extras)
+            else:
+                selected_extras=[]
+                grid_retained=len(points)
             total=len(points)
-            report['mask']={'file':a.mask if mask_points is not None else None,'original_points':original_total,'retained_points':total,'excluded_points':original_total-total}
-            print(f'Sweep points: {total}/{original_total} | masked: {original_total-total}',flush=True)
+            report['mask']={'file':a.mask if mask_points is not None else None,
+                            'original_points':original_total,'retained_points':total,
+                            'excluded_points':original_total-grid_retained,
+                            'extra_points':selected_extras}
+            print(f'Sweep points: {total} ({len(selected_extras)} extra) / {original_total} grid | masked: {original_total-grid_retained}',flush=True)
             # A 9001 frame has no verified request ID. Account for responses by
             # batch totals, never pretend to attribute an individual frame to X/Y.
             # Keep at most --buffer navigation responses outstanding.

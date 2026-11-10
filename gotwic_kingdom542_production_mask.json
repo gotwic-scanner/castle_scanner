@@ -5815,5 +5815,19 @@
     "navigation_successes": 1444,
     "missing_responses": 0,
     "scan_seconds": 77.533
-  }
+  },
+  "extra_points": [
+    [
+      680,
+      623
+    ],
+    [
+      670,
+      629
+    ],
+    [
+      664,
+      634
+    ]
+  ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GOTWiC Scanner GUI package release: 1.0.9.16
+# GOTWiC Scanner GUI package release: 1.0.9.17
 """GOTWiC Scanner desktop GUI. Runs the original scanner as a separate process."""
 import csv
 import argparse
@@ -451,11 +451,9 @@ class MainWindow(QMainWindow):
             return
         csv_path = Path(path)
         if not csv_path.is_file():
-            self.console.append(f'CSV upload skipped: file missing ({csv_path.name})')
             return
         self.upload_queue.put(csv_path)
         self.upload_pending += 1
-        self.console.append(f'CSV upload queued: {csv_path.name}')
         if self.upload_worker is None or not self.upload_worker.is_alive():
             self.upload_worker = threading.Thread(target=self._upload_worker, daemon=True)
             self.upload_worker.start()
@@ -850,13 +848,9 @@ class MainWindow(QMainWindow):
                 continue
             if kind == 'upload_ok':
                 self.upload_pending = max(0, self.upload_pending - 1)
-                filename, result = value
-                self.console.append(f'CSV upload succeeded: {filename} — {result.get("message", "Database import confirmed")}')
                 continue
             if kind == 'upload_error':
                 self.upload_pending = max(0, self.upload_pending - 1)
-                filename, error = value
-                self.console.append(f'CSV upload failed: {filename} — {error}; local CSV retained')
                 continue
             if kind=='line':
                 clean_line = re.sub(r'\x1b\[[0-9;]*m', '', value).strip()
@@ -1289,7 +1283,6 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self,event):
         if self.upload_pending:
-            self.status.setText(f'Waiting for {self.upload_pending} CSV upload(s) to finish before closing')
             event.ignore()
             return
         if (self.proc is not None and self.proc.poll() is None) or self.power_proc is not None or self.bulk_power_status is not None:
@@ -1299,7 +1292,7 @@ class MainWindow(QMainWindow):
 
 
 # Multi-file, changed-only updater. Release manifest lists every distributable file.
-APP_VERSION = '1.0.9.16'
+APP_VERSION = '1.0.9.17'
 UPDATE_BASE_URL = "https://raw.githubusercontent.com/gotwic-scanner/castle_scanner/main/"
 UPDATE_CHECK_TIMEOUT_SECONDS = 5
 UPDATE_DOWNLOAD_TIMEOUT_SECONDS = 15
